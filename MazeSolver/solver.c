@@ -71,14 +71,14 @@ void serviceQueue(){
         return;
     }
 
-    if (x + 1 < LENGTH && !cells[x + 1 + LENGTH * y].walls[3] && !cellFilled[(x + 1) + y * LENGTH]){
+    if (x + 1 < LENGTH && (!cells[x + 1 + LENGTH * y].walls[3] && !cells[x + LENGTH * y].walls[3]) && !cellFilled[(x + 1) + y * LENGTH]){
         grid[y][x + 1] = distance + 1; 
         cells[(x + 1) + y * LENGTH].Distance = distance + 1;
         cellFilled[(x + 1) + y * LENGTH] = true;
         shiftQueueUp();
         queue[0] = cells[(x + 1) + y * LENGTH];
     }
-    if (x - 1 > -1 && !cells[x - 1 + LENGTH * y].walls[1] && !cellFilled[(x - 1) + y * LENGTH]){
+    if (x - 1 > -1 && (!cells[x - 1 + LENGTH * y].walls[1] && !cells[x + LENGTH * y].walls[1]) && !cellFilled[(x - 1) + y * LENGTH]){
         grid[y][x - 1] = distance + 1;
         cells[(x - 1) + y * LENGTH].Distance = distance + 1;
         cellFilled[(x - 1) + y * LENGTH] = true;
@@ -86,14 +86,14 @@ void serviceQueue(){
         queue[0] = cells[(x - 1) + y * LENGTH];
     }
 
-    if (y + 1 < LENGTH && !cells[x + LENGTH * (y + 1)].walls[2] && !cellFilled[x + (y + 1) * LENGTH]){
+    if (y + 1 < LENGTH && (!cells[x + LENGTH * (y + 1)].walls[2] && !cells[x + LENGTH * y].walls[2]) && !cellFilled[x + (y + 1) * LENGTH]){
         grid[y + 1][x] = distance + 1; 
         cells[x + (y + 1) * LENGTH].Distance = distance + 1;
         cellFilled[x + (y + 1) * LENGTH] = true;
         shiftQueueUp();
         queue[0] = cells[x + (y + 1) * LENGTH];
     }
-    if (y - 1 > -1 && !cells[x + LENGTH * (y - 1)].walls[0] && !cellFilled[x + (y - 1) * LENGTH]){
+    if (y - 1 > -1 && (!cells[x + LENGTH * (y - 1)].walls[0] && !cells[x + LENGTH * y].walls[0]) && !cellFilled[x + (y - 1) * LENGTH]){
         grid[y - 1][x] = distance + 1;
         cells[x + (y - 1) * LENGTH].Distance = distance + 1;
         cellFilled[x + (y - 1) * LENGTH] = true;
