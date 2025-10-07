@@ -165,6 +165,7 @@ Action solver() {
 
 void detectWalls()
 {
+    char wall_direction;
     if (API_wallFront())
     {
         if (bot_x_velocity == 1)
