@@ -16,7 +16,6 @@ typedef struct {
 } Cell;
 
 Action solver();
-Action leftWallFollower();
 Action floodFill();
 
 void init_grid();
@@ -26,5 +25,6 @@ void shiftQueueUp();
 void print_grid();
 void print_queue();
 void reset_cells();
+void detectWalls();
 
 #endif

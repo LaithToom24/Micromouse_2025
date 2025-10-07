@@ -71,14 +71,14 @@ void serviceQueue(){
         return;
     }
 
-    if (x + 1 < LENGTH && (!cells[x + 1 + LENGTH * y].walls[3] && !cells[x + LENGTH * y].walls[3]) && !cellFilled[(x + 1) + y * LENGTH]){
+    if (x + 1 < LENGTH && !cells[x + 1 + LENGTH * y].walls[3] && !cellFilled[(x + 1) + y * LENGTH]){
         grid[y][x + 1] = distance + 1; 
         cells[(x + 1) + y * LENGTH].Distance = distance + 1;
         cellFilled[(x + 1) + y * LENGTH] = true;
         shiftQueueUp();
         queue[0] = cells[(x + 1) + y * LENGTH];
     }
-    if (x - 1 > -1 && (!cells[x - 1 + LENGTH * y].walls[1] && !cells[x + LENGTH * y].walls[1]) && !cellFilled[(x - 1) + y * LENGTH]){
+    if (x - 1 > -1 && !cells[x - 1 + LENGTH * y].walls[1] && !cellFilled[(x - 1) + y * LENGTH]){
         grid[y][x - 1] = distance + 1;
         cells[(x - 1) + y * LENGTH].Distance = distance + 1;
         cellFilled[(x - 1) + y * LENGTH] = true;
@@ -86,14 +86,14 @@ void serviceQueue(){
         queue[0] = cells[(x - 1) + y * LENGTH];
     }
 
-    if (y + 1 < LENGTH && (!cells[x + LENGTH * (y + 1)].walls[2] && !cells[x + LENGTH * y].walls[2]) && !cellFilled[x + (y + 1) * LENGTH]){
+    if (y + 1 < LENGTH && !cells[x + LENGTH * (y + 1)].walls[2] && !cellFilled[x + (y + 1) * LENGTH]){
         grid[y + 1][x] = distance + 1; 
         cells[x + (y + 1) * LENGTH].Distance = distance + 1;
         cellFilled[x + (y + 1) * LENGTH] = true;
         shiftQueueUp();
         queue[0] = cells[x + (y + 1) * LENGTH];
     }
-    if (y - 1 > -1 && (!cells[x + LENGTH * (y - 1)].walls[0] && !cells[x + LENGTH * y].walls[0]) && !cellFilled[x + (y - 1) * LENGTH]){
+    if (y - 1 > -1 && !cells[x + LENGTH * (y - 1)].walls[0] && !cellFilled[x + (y - 1) * LENGTH]){
         grid[y - 1][x] = distance + 1;
         cells[x + (y - 1) * LENGTH].Distance = distance + 1;
         cellFilled[x + (y - 1) * LENGTH] = true;
@@ -163,15 +163,91 @@ Action solver() {
     return floodFill();
 }
 
-// This is an example of a simple left wall following algorithm.
-Action leftWallFollower() {
-    if(API_wallFront()) {
-        if(API_wallLeft()){
-            return RIGHT;
+void detectWalls()
+{
+    if (API_wallFront())
+    {
+        if (bot_x_velocity == 1)
+        {
+            wall_direction = 'e';
+            cells[bot_x_pos + LENGTH * bot_y_pos].walls[1] = true;
+            API_setWall(bot_x_pos, bot_y_pos, wall_direction);
         }
-        return LEFT;
+        else if (bot_x_velocity == -1)
+        {
+            wall_direction = 'w';
+            cells[bot_x_pos + LENGTH * bot_y_pos].walls[3] = true;
+            API_setWall(bot_x_pos, bot_y_pos, wall_direction);
+        }
+        else if (bot_y_velocity == 1)
+        {
+            wall_direction = 'n';
+            cells[bot_x_pos + LENGTH * bot_y_pos].walls[0] = true;
+            API_setWall(bot_x_pos, bot_y_pos, wall_direction);
+        }
+        else if (bot_y_velocity == -1)
+        {
+            wall_direction = 's';
+            cells[bot_x_pos + LENGTH * bot_y_pos].walls[2] = true;
+            API_setWall(bot_x_pos, bot_y_pos, wall_direction);
+        }
     }
-    return FORWARD;
+
+    if (API_wallLeft())
+    {
+        if (bot_x_velocity == 1)
+        {
+            wall_direction = 'n';
+            cells[bot_x_pos + LENGTH * bot_y_pos].walls[0] = true;
+            API_setWall(bot_x_pos, bot_y_pos, wall_direction);
+        }
+        else if (bot_x_velocity == -1)
+        {
+            wall_direction = 's';
+            cells[bot_x_pos + LENGTH * bot_y_pos].walls[2] = true;
+            API_setWall(bot_x_pos, bot_y_pos, wall_direction);
+        }
+        else if (bot_y_velocity == 1)
+        {
+            wall_direction = 'w';
+            cells[bot_x_pos + LENGTH * bot_y_pos].walls[3] = true;
+            API_setWall(bot_x_pos, bot_y_pos, wall_direction);
+        }
+        else if (bot_y_velocity == -1)
+        {
+            wall_direction = 'e';
+            cells[bot_x_pos + LENGTH * bot_y_pos].walls[1] = true;
+            API_setWall(bot_x_pos, bot_y_pos, wall_direction);
+        }
+    }
+
+    if (API_wallRight())
+    {
+        if (bot_x_velocity == 1)
+        {
+            wall_direction = 's';
+            cells[bot_x_pos + LENGTH * bot_y_pos].walls[2] = true;
+            API_setWall(bot_x_pos, bot_y_pos, wall_direction);
+        }
+        else if (bot_x_velocity == -1)
+        {
+            wall_direction = 'n';
+            cells[bot_x_pos + LENGTH * bot_y_pos].walls[0] = true;
+            API_setWall(bot_x_pos, bot_y_pos, wall_direction);
+        }
+        else if (bot_y_velocity == 1)
+        {
+            wall_direction = 'e';
+            cells[bot_x_pos + LENGTH * bot_y_pos].walls[1] = true;
+            API_setWall(bot_x_pos, bot_y_pos, wall_direction);
+        }
+        else if (bot_y_velocity == -1)
+        {
+            wall_direction = 'w';
+            cells[bot_x_pos + LENGTH * bot_y_pos].walls[3] = true;
+            API_setWall(bot_x_pos, bot_y_pos, wall_direction);
+        }
+    }
 }
 
 
@@ -229,6 +305,8 @@ Action floodFill() {
     //     API_setWall(bot_x_pos, bot_y_pos, wall_direction);
     // }
     
+    detectWalls();
+
     if(API_wallFront()) {
         char wall_direction;
         if (bot_x_velocity == 1){
