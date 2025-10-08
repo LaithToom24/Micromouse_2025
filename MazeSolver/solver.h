@@ -22,7 +22,7 @@ void init_grid();
 void serviceQueue();
 void recalculateFloodfill();
 void shiftQueueUp();
-void print_grid();
+void print_distances();
 void print_queue();
 void reset_cells();
 bool detectWalls();

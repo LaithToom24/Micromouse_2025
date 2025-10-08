@@ -5,7 +5,6 @@
 #define AREA LENGTH*LENGTH
 Cell cells[AREA];
 bool cellFilled[AREA];
-int grid[LENGTH][LENGTH];
 #define MAX_QUEUE 512
 Cell queue[MAX_QUEUE+1];
 int queueSize = 0;
@@ -35,15 +34,15 @@ void init_grid(){
     while (queueSize > 0){
         serviceQueue();
     }
-    print_grid();
+    print_distances();
     debug_log("Maze initially filled.");
 };
 
-void print_grid(){
+void print_distances(){
     //debug_log("UPDATING MANHATTAN DISTANCES");
     for (int i = 0; i < LENGTH; i++){
         for (int j = 0; j < LENGTH; j++){
-            sprintf(str, "%d", grid[i][j]);
+            sprintf(str, "%d", cells[i + j * LENGTH].Distance);
             API_setText(i, j, str);
         }
     }
@@ -73,7 +72,6 @@ void serviceQueue(){
 
     // sprintf(coordinate_string, "x: %d, y: %d, distance: %d", x, y, distance);
     // debug_log(coordinate_string);
-
     
     if (queueSize > 1 && queue[queueSize-2].Coordinate[0] == x && queue[queueSize-2].Coordinate[1] == y){
         queueSize--;
@@ -81,28 +79,24 @@ void serviceQueue(){
     }
 
     if (x + 1 < LENGTH && (!cells[x + 1 + LENGTH * y].walls[3] && !cells[x + LENGTH * y].walls[1]) && !cellFilled[(x + 1) + y * LENGTH]) {
-        grid[y][x + 1] = distance + 1;
         cells[(x + 1) + y * LENGTH].Distance = distance + 1;
         cellFilled[(x + 1) + y * LENGTH] = true;
         shiftQueueUp();
         queue[0] = cells[(x + 1) + y * LENGTH];
     }
     if (x - 1 > -1 && (!cells[x - 1 + LENGTH * y].walls[1] && !cells[x + LENGTH * y].walls[3]) && !cellFilled[(x - 1) + y * LENGTH]) {
-        grid[y][x - 1] = distance + 1;
         cells[(x - 1) + y * LENGTH].Distance = distance + 1;
         cellFilled[(x - 1) + y * LENGTH] = true;
         shiftQueueUp();
         queue[0] = cells[(x - 1) + y * LENGTH];
     }
     if (y + 1 < LENGTH && (!cells[x + LENGTH * (y + 1)].walls[2] && !cells[x + LENGTH * y].walls[0]) && !cellFilled[x + (y + 1) * LENGTH]) {
-        grid[y + 1][x] = distance + 1;
         cells[x + (y + 1) * LENGTH].Distance = distance + 1;
         cellFilled[x + (y + 1) * LENGTH] = true;
         shiftQueueUp();
         queue[0] = cells[x + (y + 1) * LENGTH];
     }
     if (y - 1 > -1 && (!cells[x + LENGTH * (y - 1)].walls[0] && !cells[x + LENGTH * y].walls[2]) && !cellFilled[x + (y - 1) * LENGTH]) {
-        grid[y - 1][x] = distance + 1;
         cells[x + (y - 1) * LENGTH].Distance = distance + 1;
         cellFilled[x + (y - 1) * LENGTH] = true;
         shiftQueueUp();
@@ -118,17 +112,17 @@ void recalculateFloodfill(){
     queue[1] = cells[8 + (8 * LENGTH)];
     queue[2] = cells[7 + (8 * LENGTH)];
     queue[3] = cells[7 + (7 * LENGTH)];
-    queueSize = 1;
+    queueSize = 4;
     while (queueSize > 0){
         serviceQueue();
     }
-    print_grid();
+    print_distances();
 }
 
 void reset_cells(){
     for (int i = 0; i < LENGTH; i++){
         for (int j = 0; j < LENGTH; j++){
-            cells[j+LENGTH*i].Distance = grid[i][j] + 1;
+            cells[j+LENGTH*i].Distance = 1;
             cells[j+LENGTH*i].Coordinate[0] = j;
             cells[j+LENGTH*i].Coordinate[1] = i;
             cellFilled[j + i * LENGTH] = false;
@@ -149,10 +143,6 @@ void reset_cells(){
     cellFilled[7 + (8 * LENGTH)] = true;
     cellFilled[7 + (7 * LENGTH)] = true;
 }
-
-//void set_cell_distance(int newDistance, int i){
-//    cells[i].Distance = newDistance;
-//}
 
 Action solver() {
     if (init){
@@ -214,7 +204,6 @@ bool detectWalls()
             wall_direction = 'n';
             if (!cells[bot_x_pos + LENGTH * bot_y_pos].walls[0]) {
                 cells[bot_x_pos + LENGTH * bot_y_pos].walls[0] = true;
-                new_wall_detected = true;
                 API_setWall(bot_x_pos, bot_y_pos, wall_direction);
             }
         }
@@ -223,7 +212,6 @@ bool detectWalls()
             wall_direction = 's';
             if (!cells[bot_x_pos + LENGTH * bot_y_pos].walls[2]) {
                 cells[bot_x_pos + LENGTH * bot_y_pos].walls[2] = true;
-                new_wall_detected = true;
                 API_setWall(bot_x_pos, bot_y_pos, wall_direction);
             }
         }
@@ -232,7 +220,6 @@ bool detectWalls()
             wall_direction = 'w';
             if (!cells[bot_x_pos + LENGTH * bot_y_pos].walls[3]) {
                 cells[bot_x_pos + LENGTH * bot_y_pos].walls[3] = true;
-                new_wall_detected = true;
                 API_setWall(bot_x_pos, bot_y_pos, wall_direction);
             }
         }
@@ -241,7 +228,6 @@ bool detectWalls()
             wall_direction = 'e';
             if (!cells[bot_x_pos + LENGTH * bot_y_pos].walls[1]) {
                 cells[bot_x_pos + LENGTH * bot_y_pos].walls[1] = true;
-                new_wall_detected = true;
                 API_setWall(bot_x_pos, bot_y_pos, wall_direction);
             }
         }
@@ -254,7 +240,6 @@ bool detectWalls()
             wall_direction = 's';
             if (!cells[bot_x_pos + LENGTH * bot_y_pos].walls[2]) {
                 cells[bot_x_pos + LENGTH * bot_y_pos].walls[2] = true;
-                new_wall_detected = true;
                 API_setWall(bot_x_pos, bot_y_pos, wall_direction);
             }
         }
@@ -263,7 +248,6 @@ bool detectWalls()
             wall_direction = 'n';
             if (!cells[bot_x_pos + LENGTH * bot_y_pos].walls[0]) {
                 cells[bot_x_pos + LENGTH * bot_y_pos].walls[0] = true;
-                new_wall_detected = true;
                 API_setWall(bot_x_pos, bot_y_pos, wall_direction);
             }
         }
@@ -272,7 +256,6 @@ bool detectWalls()
             wall_direction = 'e';
             if (!cells[bot_x_pos + LENGTH * bot_y_pos].walls[1]) {
                 cells[bot_x_pos + LENGTH * bot_y_pos].walls[1] = true;
-                new_wall_detected = true;
                 API_setWall(bot_x_pos, bot_y_pos, wall_direction);
             }
         }
@@ -281,7 +264,6 @@ bool detectWalls()
             wall_direction = 'w';
             if (!cells[bot_x_pos + LENGTH * bot_y_pos].walls[3]) {
                 cells[bot_x_pos + LENGTH * bot_y_pos].walls[3] = true;
-                new_wall_detected = true;
                 API_setWall(bot_x_pos, bot_y_pos, wall_direction);
             }
         }
@@ -294,82 +276,16 @@ bool detectWalls()
 // Put your implementation of floodfill here!
 Action floodFill() {
     Action nextMove = FORWARD;
-    // alreadyFound = false;
 
-    // if (API_wallLeft()){
-    //     char wall_direction;
-    //     if (bot_x_velocity == 1){
-    //         wall_direction = 'n';
-    //         cells[bot_x_pos + LENGTH * bot_y_pos].walls[1] = true;
-    //         // debug_log("e");
-    //     }
-    //     else if (bot_x_velocity == -1){
-    //         wall_direction = 's';
-    //         cells[bot_x_pos + LENGTH * bot_y_pos].walls[3] = true;
-    //         // debug_log("w");
-    //     }
-    //     else if (bot_y_velocity == 1){
-    //         wall_direction = 'w';
-    //         cells[bot_x_pos + LENGTH * bot_y_pos].walls[0] = true;
-    //         // debug_log("n");
-    //     }
-    //     else if (bot_y_velocity == -1){
-    //         wall_direction = 'e';
-    //         cells[bot_x_pos + LENGTH * bot_y_pos].walls[2] = true;
-    //         // debug_log("s");
-    //     }
-    //     API_setWall(bot_x_pos, bot_y_pos, wall_direction);
-    // }
-    // else if (API_wallRight()){
-    //     char wall_direction;
-    //     if (bot_x_velocity == 1){
-    //         wall_direction = 's';
-    //         cells[bot_x_pos + LENGTH * bot_y_pos].walls[1] = true;
-    //         // debug_log("e");
-    //     }
-    //     else if (bot_x_velocity == -1){
-    //         wall_direction = 'n';
-    //         cells[bot_x_pos + LENGTH * bot_y_pos].walls[3] = true;
-    //         // debug_log("w");
-    //     }
-    //     else if (bot_y_velocity == 1){
-    //         wall_direction = 'e';
-    //         cells[bot_x_pos + LENGTH * bot_y_pos].walls[0] = true;
-    //         // debug_log("n");
-    //     }
-    //     else if (bot_y_velocity == -1){
-    //         wall_direction = 'w';
-    //         cells[bot_x_pos + LENGTH * bot_y_pos].walls[2] = true;
-    //         // debug_log("s");
-    //     }
-    //     API_setWall(bot_x_pos, bot_y_pos, wall_direction);
-    // }
+    if (API_wasReset()) {
+        API_ackReset();
+        bot_x_pos = 0;
+        bot_y_pos = 0;
+        bot_y_velocity = 1;
+        bot_x_velocity = 0;
+    }
 
     if (detectWalls()) {
-        /*
-        char wall_direction;
-        if (bot_x_velocity == 1){
-            wall_direction = 'e';
-            cells[bot_x_pos + LENGTH * bot_y_pos].walls[1] = true;
-            // debug_log("e");
-        }
-        else if (bot_x_velocity == -1){
-            wall_direction = 'w';
-            cells[bot_x_pos + LENGTH * bot_y_pos].walls[3] = true;
-            // debug_log("w");
-        }
-        else if (bot_y_velocity == 1){
-            wall_direction = 'n';
-            cells[bot_x_pos + LENGTH * bot_y_pos].walls[0] = true;
-            // debug_log("n");
-        }
-        else if (bot_y_velocity == -1){
-            wall_direction = 's';
-            cells[bot_x_pos + LENGTH * bot_y_pos].walls[2] = true;
-            // debug_log("s");
-        }
-        API_setWall(bot_x_pos, bot_y_pos, wall_direction);
-        */
         recalculateFloodfill();
     }
 
@@ -407,24 +323,26 @@ Action floodFill() {
             left_cell_distance = 1000;
         else
             left_cell_distance = cells[(bot_x_pos - bot_y_velocity) + LENGTH * (bot_y_pos + bot_x_velocity)].Distance;
-            sprintf(str, "Left Cell Coordinates are (%d, %d)", bot_x_pos - bot_y_velocity, bot_y_pos + bot_x_velocity);
-            debug_log(str);
+        sprintf(str, "Left Cell Coordinates are (%d, %d) with distance: %d", bot_x_pos - bot_y_velocity, bot_y_pos + bot_x_velocity, left_cell_distance);
+        debug_log(str);
 
         if (bot_y_pos < bot_x_velocity || wall_right)
             right_cell_distance = 1000;
         else
             right_cell_distance = cells[(bot_x_pos + bot_y_velocity) + LENGTH * (bot_y_pos - bot_x_velocity)].Distance;
+        sprintf(str, "Right Cell Coordinates are (%d, %d) with distance: %d", bot_x_pos + bot_y_velocity, bot_y_pos - bot_x_velocity, right_cell_distance);
+        debug_log(str);
 
         if (wall_front)
             front_cell_distance = 1000;
-        else
+        else 
             front_cell_distance = cells[(bot_x_pos + bot_x_velocity) + LENGTH * (bot_y_pos + bot_y_velocity)].Distance;
+        sprintf(str, "Front Cell Coordinates are (%d, %d) with distance: %d", bot_x_pos + bot_x_velocity, bot_y_pos + bot_y_velocity, front_cell_distance);
+        debug_log(str);
 
         if (left_cell_distance <= right_cell_distance){
             if (left_cell_distance < front_cell_distance)
                 nextMove = LEFT;
-            sprintf(str, "front_cell_distance: %d, left_cell_distance: %d", front_cell_distance, left_cell_distance);
-            debug_log(str);
         }
         else if (right_cell_distance < left_cell_distance){
             if (right_cell_distance < front_cell_distance)
