@@ -22,6 +22,8 @@ int bot_y_pos = 0;
 int left_cell_distance;
 int right_cell_distance;
 int front_cell_distance;
+bool goal_reached = false;
+bool print_goal_message = true;
 char str[20];
 
 void init_grid(){ 
@@ -204,6 +206,7 @@ bool detectWalls()
             wall_direction = 'n';
             if (!cells[bot_x_pos + LENGTH * bot_y_pos].walls[0]) {
                 cells[bot_x_pos + LENGTH * bot_y_pos].walls[0] = true;
+                new_wall_detected = true;
                 API_setWall(bot_x_pos, bot_y_pos, wall_direction);
             }
         }
@@ -212,6 +215,7 @@ bool detectWalls()
             wall_direction = 's';
             if (!cells[bot_x_pos + LENGTH * bot_y_pos].walls[2]) {
                 cells[bot_x_pos + LENGTH * bot_y_pos].walls[2] = true;
+                new_wall_detected = true;
                 API_setWall(bot_x_pos, bot_y_pos, wall_direction);
             }
         }
@@ -220,6 +224,7 @@ bool detectWalls()
             wall_direction = 'w';
             if (!cells[bot_x_pos + LENGTH * bot_y_pos].walls[3]) {
                 cells[bot_x_pos + LENGTH * bot_y_pos].walls[3] = true;
+                new_wall_detected = true;
                 API_setWall(bot_x_pos, bot_y_pos, wall_direction);
             }
         }
@@ -228,6 +233,7 @@ bool detectWalls()
             wall_direction = 'e';
             if (!cells[bot_x_pos + LENGTH * bot_y_pos].walls[1]) {
                 cells[bot_x_pos + LENGTH * bot_y_pos].walls[1] = true;
+                new_wall_detected = true;
                 API_setWall(bot_x_pos, bot_y_pos, wall_direction);
             }
         }
@@ -240,6 +246,7 @@ bool detectWalls()
             wall_direction = 's';
             if (!cells[bot_x_pos + LENGTH * bot_y_pos].walls[2]) {
                 cells[bot_x_pos + LENGTH * bot_y_pos].walls[2] = true;
+                new_wall_detected = true;
                 API_setWall(bot_x_pos, bot_y_pos, wall_direction);
             }
         }
@@ -248,6 +255,7 @@ bool detectWalls()
             wall_direction = 'n';
             if (!cells[bot_x_pos + LENGTH * bot_y_pos].walls[0]) {
                 cells[bot_x_pos + LENGTH * bot_y_pos].walls[0] = true;
+                new_wall_detected = true;
                 API_setWall(bot_x_pos, bot_y_pos, wall_direction);
             }
         }
@@ -256,6 +264,7 @@ bool detectWalls()
             wall_direction = 'e';
             if (!cells[bot_x_pos + LENGTH * bot_y_pos].walls[1]) {
                 cells[bot_x_pos + LENGTH * bot_y_pos].walls[1] = true;
+                new_wall_detected = true;
                 API_setWall(bot_x_pos, bot_y_pos, wall_direction);
             }
         }
@@ -264,6 +273,7 @@ bool detectWalls()
             wall_direction = 'w';
             if (!cells[bot_x_pos + LENGTH * bot_y_pos].walls[3]) {
                 cells[bot_x_pos + LENGTH * bot_y_pos].walls[3] = true;
+                new_wall_detected = true;
                 API_setWall(bot_x_pos, bot_y_pos, wall_direction);
             }
         }
@@ -272,10 +282,78 @@ bool detectWalls()
     return new_wall_detected;
 }
 
+Action decideBestMove() {
+    int left_cell_offset[2];
+    if (bot_x_velocity == -1) {
+        wall_left = cells[bot_x_pos + bot_y_pos * LENGTH].walls[2];
+        wall_right = cells[bot_x_pos + bot_y_pos * LENGTH].walls[0];
+        wall_front = cells[bot_x_pos + bot_y_pos * LENGTH].walls[3];
+        left_cell_offset[0] = 0;
+        left_cell_offset[1] = -1;
+    }
+    else if (bot_x_velocity == 1) {
+        wall_left = cells[bot_x_pos + bot_y_pos * LENGTH].walls[0];
+        wall_right = cells[bot_x_pos + bot_y_pos * LENGTH].walls[2];
+        wall_front = cells[bot_x_pos + bot_y_pos * LENGTH].walls[1];
+        left_cell_offset[0] = 0;
+        left_cell_offset[1] = 1;
+    }
+    else if (bot_y_velocity == -1) {
+        wall_left = cells[bot_x_pos + bot_y_pos * LENGTH].walls[1];
+        wall_right = cells[bot_x_pos + bot_y_pos * LENGTH].walls[3];
+        wall_front = cells[bot_x_pos + bot_y_pos * LENGTH].walls[2];
+        left_cell_offset[0] = 1;
+        left_cell_offset[1] = 0;
+    }
+    else {
+        wall_left = cells[bot_x_pos + bot_y_pos * LENGTH].walls[3];
+        wall_right = cells[bot_x_pos + bot_y_pos * LENGTH].walls[1];
+        wall_front = cells[bot_x_pos + bot_y_pos * LENGTH].walls[0];
+        left_cell_offset[0] = -1;
+        left_cell_offset[1] = 0;
+    }
+
+    sprintf(str, "wall_front: %d, wall_left: %d, wall_right: %d", wall_front, wall_left, wall_right);
+    debug_log(str);
+
+    if (wall_left)
+        left_cell_distance = 1000;
+    else
+        left_cell_distance = cells[(bot_x_pos + left_cell_offset[0]) + LENGTH * (bot_y_pos + left_cell_offset[1])].Distance;
+    sprintf(str, "Left Cell Coordinates are (%d, %d) with distance: %d", bot_x_pos + left_cell_offset[0], bot_y_pos + left_cell_offset[1], left_cell_distance);
+    debug_log(str);
+
+    if (wall_right)
+        right_cell_distance = 1000;
+    else
+        right_cell_distance = cells[(bot_x_pos - left_cell_offset[0]) + LENGTH * (bot_y_pos - left_cell_offset[1])].Distance;
+    sprintf(str, "Right Cell Coordinates are (%d, %d) with distance: %d", bot_x_pos - left_cell_offset[0], bot_y_pos - left_cell_offset[1], right_cell_distance);
+    debug_log(str);
+
+    if (wall_front)
+        front_cell_distance = 1000;
+    else
+        front_cell_distance = cells[(bot_x_pos + left_cell_offset[1]) + LENGTH * (bot_y_pos - left_cell_offset[0])].Distance;
+    sprintf(str, "Front Cell Coordinates are (%d, %d) with distance: %d", bot_x_pos + left_cell_offset[1], bot_y_pos - left_cell_offset[0], front_cell_distance);
+    debug_log(str);
+
+
+    if (left_cell_distance <= right_cell_distance) {
+        if (left_cell_distance < front_cell_distance)
+            return LEFT;
+    }
+    else if (right_cell_distance < left_cell_distance) {
+        if (right_cell_distance < front_cell_distance)
+            return RIGHT;
+    }
+    
+    return FORWARD;
+}
+
 
 // Put your implementation of floodfill here!
 Action floodFill() {
-    Action nextMove = FORWARD;
+    Action nextMove;
 
     if (API_wasReset()) {
         API_ackReset();
@@ -289,64 +367,24 @@ Action floodFill() {
         recalculateFloodfill();
     }
 
-    if (API_wallFront()) {
-        nextMove = LEFT;
-        if (API_wallLeft())
-            nextMove = RIGHT;
+    nextMove = decideBestMove();
+
+    if (!goal_reached) {
+        goal_reached = (cells[bot_x_pos + bot_y_pos * LENGTH].Distance == 0);
     }
-    else{
-        if (bot_x_velocity == -1){
-            wall_left = cells[bot_x_pos + bot_y_pos * LENGTH].walls[2];
-            wall_right = cells[bot_x_pos + bot_y_pos * LENGTH].walls[0];
-            wall_front = cells[bot_x_pos + bot_y_pos * LENGTH].walls[3];
-        }
-        else if (bot_x_velocity == 1){
-            wall_left = cells[bot_x_pos + bot_y_pos * LENGTH].walls[0];
-            wall_right = cells[bot_x_pos + bot_y_pos * LENGTH].walls[2];
-            wall_front = cells[bot_x_pos + bot_y_pos * LENGTH].walls[1];
-        }
-        else if (bot_y_velocity == -1){
-            wall_left = cells[bot_x_pos + bot_y_pos * LENGTH].walls[1];
-            wall_right = cells[bot_x_pos + bot_y_pos * LENGTH].walls[3];
-            wall_front = cells[bot_x_pos + bot_y_pos * LENGTH].walls[2];
-        }
-        else{
-            wall_left = cells[bot_x_pos + bot_y_pos * LENGTH].walls[3];
-            wall_right = cells[bot_x_pos + bot_y_pos * LENGTH].walls[1];
-            wall_front = cells[bot_x_pos + bot_y_pos * LENGTH].walls[0];
-        }
 
-        sprintf(str, "wall_front: %d, wall_left: %d, wall_right: %d", wall_front, wall_left, wall_right);
-        debug_log(str);
-
-        if (bot_x_pos < bot_y_velocity || wall_left)
-            left_cell_distance = 1000;
-        else
-            left_cell_distance = cells[(bot_x_pos - bot_y_velocity) + LENGTH * (bot_y_pos + bot_x_velocity)].Distance;
-        sprintf(str, "Left Cell Coordinates are (%d, %d) with distance: %d", bot_x_pos - bot_y_velocity, bot_y_pos + bot_x_velocity, left_cell_distance);
-        debug_log(str);
-
-        if (bot_y_pos < bot_x_velocity || wall_right)
-            right_cell_distance = 1000;
-        else
-            right_cell_distance = cells[(bot_x_pos + bot_y_velocity) + LENGTH * (bot_y_pos - bot_x_velocity)].Distance;
-        sprintf(str, "Right Cell Coordinates are (%d, %d) with distance: %d", bot_x_pos + bot_y_velocity, bot_y_pos - bot_x_velocity, right_cell_distance);
-        debug_log(str);
-
-        if (wall_front)
-            front_cell_distance = 1000;
-        else 
-            front_cell_distance = cells[(bot_x_pos + bot_x_velocity) + LENGTH * (bot_y_pos + bot_y_velocity)].Distance;
-        sprintf(str, "Front Cell Coordinates are (%d, %d) with distance: %d", bot_x_pos + bot_x_velocity, bot_y_pos + bot_y_velocity, front_cell_distance);
-        debug_log(str);
-
-        if (left_cell_distance <= right_cell_distance){
-            if (left_cell_distance < front_cell_distance)
-                nextMove = LEFT;
+    if (goal_reached) {
+        if (print_goal_message) {
+            debug_log("PATH TO GOAL FOUND!");
+            print_goal_message = false;
         }
-        else if (right_cell_distance < left_cell_distance){
-            if (right_cell_distance < front_cell_distance)
+    }
+    else {
+        if (API_wallFront()) {
+            nextMove = LEFT;
+            if (API_wallLeft()) {
                 nextMove = RIGHT;
+            }
         }
     }
 
@@ -390,14 +428,35 @@ Action floodFill() {
             bot_x_velocity = 0;
         }
     }
-    else{ 
-        sprintf(str, "x: %d, y: %d", bot_x_pos, bot_y_pos);
-        debug_log(str);
-        sprintf(str, "x_vel: %d, y_vel: %d", bot_x_velocity, bot_y_velocity);
-        debug_log(str);
+    else if (!API_wallFront()){ 
+        //sprintf(str, "x: %d, y: %d", bot_x_pos, bot_y_pos);
+        //debug_log(str);
+        //sprintf(str, "x_vel: %d, y_vel: %d", bot_x_velocity, bot_y_velocity);
+        //debug_log(str);
         bot_x_pos += bot_x_velocity;
         bot_y_pos += bot_y_velocity;
     } 
+    else {
+        nextMove = LEFT;
+        debug_log("TURNING LEFT.");
+        if (bot_y_velocity == 1) {
+            bot_x_velocity = -1;
+            bot_y_velocity = 0;
+        }
+        else if (bot_y_velocity == -1) {
+            bot_x_velocity = 1;
+            bot_y_velocity = 0;
+        }
+        else {
+            if (bot_x_velocity == -1) {
+                bot_y_velocity = -1;
+            }
+            else if (bot_x_velocity == 1) {
+                bot_y_velocity = 1;
+            }
+            bot_x_velocity = 0;
+        }
+    }
 
     return nextMove;
     
