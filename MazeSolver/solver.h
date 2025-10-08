@@ -25,6 +25,6 @@ void shiftQueueUp();
 void print_grid();
 void print_queue();
 void reset_cells();
-void detectWalls();
+bool detectWalls();
 
 #endif
