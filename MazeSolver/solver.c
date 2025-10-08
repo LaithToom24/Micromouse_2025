@@ -4,9 +4,7 @@
 #define LENGTH 16
 #define AREA LENGTH*LENGTH
 Cell cells[AREA];
-bool cellFilled[AREA];
 #define MAX_QUEUE 512
-#define GOAL_CELLS 4
 Cell queue[MAX_QUEUE+1];
 int queueSize = 0;
 bool init = true;
@@ -24,6 +22,7 @@ int left_cell_distance;
 int right_cell_distance;
 int front_cell_distance;
 int goal_cells_found = 0;
+int goal_cells_existing = 4;
 bool goal_reached = false;
 bool print_goal_message = true;
 char str[20];
@@ -82,27 +81,27 @@ void serviceQueue(){
         return;
     }
 
-    if (x + 1 < LENGTH && (!cells[x + 1 + LENGTH * y].walls[3] && !cells[x + LENGTH * y].walls[1]) && !cellFilled[(x + 1) + y * LENGTH]) {
+    if (x + 1 < LENGTH && (!cells[x + 1 + LENGTH * y].walls[3] && !cells[x + LENGTH * y].walls[1]) && !cells[(x + 1) + y * LENGTH].Filled) {
         cells[(x + 1) + y * LENGTH].Distance = distance + 1;
-        cellFilled[(x + 1) + y * LENGTH] = true;
+        cells[(x + 1) + y * LENGTH].Filled = true;
         shiftQueueUp();
         queue[0] = cells[(x + 1) + y * LENGTH];
     }
-    if (x - 1 > -1 && (!cells[x - 1 + LENGTH * y].walls[1] && !cells[x + LENGTH * y].walls[3]) && !cellFilled[(x - 1) + y * LENGTH]) {
+    if (x - 1 > -1 && (!cells[x - 1 + LENGTH * y].walls[1] && !cells[x + LENGTH * y].walls[3]) && !cells[(x - 1) + y * LENGTH].Filled) {
         cells[(x - 1) + y * LENGTH].Distance = distance + 1;
-        cellFilled[(x - 1) + y * LENGTH] = true;
+        cells[(x - 1) + y * LENGTH].Filled = true;
         shiftQueueUp();
         queue[0] = cells[(x - 1) + y * LENGTH];
     }
-    if (y + 1 < LENGTH && (!cells[x + LENGTH * (y + 1)].walls[2] && !cells[x + LENGTH * y].walls[0]) && !cellFilled[x + (y + 1) * LENGTH]) {
+    if (y + 1 < LENGTH && (!cells[x + LENGTH * (y + 1)].walls[2] && !cells[x + LENGTH * y].walls[0]) && !cells[x + (y + 1) * LENGTH].Filled) {
         cells[x + (y + 1) * LENGTH].Distance = distance + 1;
-        cellFilled[x + (y + 1) * LENGTH] = true;
+        cells[x + (y + 1) * LENGTH].Filled = true;
         shiftQueueUp();
         queue[0] = cells[x + (y + 1) * LENGTH];
     }
-    if (y - 1 > -1 && (!cells[x + LENGTH * (y - 1)].walls[0] && !cells[x + LENGTH * y].walls[2]) && !cellFilled[x + (y - 1) * LENGTH]) {
+    if (y - 1 > -1 && (!cells[x + LENGTH * (y - 1)].walls[0] && !cells[x + LENGTH * y].walls[2]) && !cells[x + (y - 1) * LENGTH].Filled) {
         cells[x + (y - 1) * LENGTH].Distance = distance + 1;
-        cellFilled[x + (y - 1) * LENGTH] = true;
+        cells[x + (y - 1) * LENGTH].Filled = true;
         shiftQueueUp();
         queue[0] = cells[x + (y - 1) * LENGTH];
     }
@@ -111,8 +110,8 @@ void serviceQueue(){
 }
 
 void recalculateFloodfill(){
-    reset_cells(goal_cells_found == GOAL_CELLS);
-    if (goal_cells_found != GOAL_CELLS) {
+    reset_cells(goal_cells_found == goal_cells_existing);
+    if (goal_cells_found != goal_cells_existing) {
         queue[0] = cells[8 + (7 * LENGTH)];
         queue[1] = cells[8 + (8 * LENGTH)];
         queue[2] = cells[7 + (8 * LENGTH)];
@@ -135,7 +134,7 @@ void reset_cells(bool goal_is_start){
             cells[j+LENGTH*i].Distance = 1;
             cells[j+LENGTH*i].Coordinate[0] = j;
             cells[j+LENGTH*i].Coordinate[1] = i;
-            cellFilled[j + i * LENGTH] = false;
+            cells[j + i * LENGTH].Filled = false;
             if (init){
                 cells[j+LENGTH*i].walls[0] = false;
                 cells[j+LENGTH*i].walls[1] = false;
@@ -149,14 +148,14 @@ void reset_cells(bool goal_is_start){
         cells[8 + (8 * LENGTH)].Distance = 0;
         cells[7 + (8 * LENGTH)].Distance = 0;
         cells[7 + (7 * LENGTH)].Distance = 0;
-        cellFilled[8 + (7 * LENGTH)] = true;
-        cellFilled[8 + (8 * LENGTH)] = true;
-        cellFilled[7 + (8 * LENGTH)] = true;
-        cellFilled[7 + (7 * LENGTH)] = true;
+        cells[8 + (7 * LENGTH)].Filled = true;
+        cells[8 + (8 * LENGTH)].Filled = true;
+        cells[7 + (8 * LENGTH)].Filled = true;
+        cells[7 + (7 * LENGTH)].Filled = true;
     }
     else {
         cells[0].Distance = 0;
-        cellFilled[0] = true;
+        cells[0].Filled = true;
     }
 }
 
@@ -297,7 +296,7 @@ bool detectWalls()
 }
 
 Action decideBestMove() {
-    int left_cell_offset[2];
+    int left_cell_offset[2] = {0};
     if (bot_x_velocity == -1) {
         wall_left = cells[bot_x_pos + bot_y_pos * LENGTH].walls[2];
         wall_right = cells[bot_x_pos + bot_y_pos * LENGTH].walls[0];
@@ -327,29 +326,33 @@ Action decideBestMove() {
         left_cell_offset[1] = 0;
     }
 
-    sprintf(str, "wall_front: %d, wall_left: %d, wall_right: %d", wall_front, wall_left, wall_right);
-    debug_log(str);
+    //sprintf(str, "wall_front: %d, wall_left: %d, wall_right: %d", wall_front, wall_left, wall_right);
+    //debug_log(str);
 
     if (wall_left)
         left_cell_distance = 1000;
     else
         left_cell_distance = cells[(bot_x_pos + left_cell_offset[0]) + LENGTH * (bot_y_pos + left_cell_offset[1])].Distance;
-    sprintf(str, "Left Cell Coordinates are (%d, %d) with distance: %d", bot_x_pos + left_cell_offset[0], bot_y_pos + left_cell_offset[1], left_cell_distance);
-    debug_log(str);
+    //sprintf(str, "%d", (bot_x_pos + left_cell_offset[0]) + LENGTH * (bot_y_pos + left_cell_offset[1]));
+    //debug_log(str);
+    //sprintf(str, "Left Cell Coordinates are (%d, %d) with distance: %d", bot_x_pos + left_cell_offset[0], bot_y_pos + left_cell_offset[1], left_cell_distance);
+    //debug_log(str);
 
     if (wall_right)
         right_cell_distance = 1000;
     else
         right_cell_distance = cells[(bot_x_pos - left_cell_offset[0]) + LENGTH * (bot_y_pos - left_cell_offset[1])].Distance;
-    sprintf(str, "Right Cell Coordinates are (%d, %d) with distance: %d", bot_x_pos - left_cell_offset[0], bot_y_pos - left_cell_offset[1], right_cell_distance);
-    debug_log(str);
+    //sprintf(str, "Right Cell Coordinates are (%d, %d) with distance: %d", bot_x_pos - left_cell_offset[0], bot_y_pos - left_cell_offset[1], right_cell_distance);
+    //debug_log(str);
 
     if (wall_front)
         front_cell_distance = 1000;
     else
         front_cell_distance = cells[(bot_x_pos + left_cell_offset[1]) + LENGTH * (bot_y_pos - left_cell_offset[0])].Distance;
-    sprintf(str, "Front Cell Coordinates are (%d, %d) with distance: %d", bot_x_pos + left_cell_offset[1], bot_y_pos - left_cell_offset[0], front_cell_distance);
-    debug_log(str);
+    //sprintf(str, "%d", (bot_x_pos + left_cell_offset[1]) + LENGTH * (bot_y_pos - left_cell_offset[0]));
+    //debug_log(str);
+    //sprintf(str, "Front Cell Coordinates are (%d, %d) with distance: %d", bot_x_pos + left_cell_offset[1], bot_y_pos - left_cell_offset[0], front_cell_distance);
+    //debug_log(str);
 
 
     if (left_cell_distance <= right_cell_distance) {
@@ -386,9 +389,16 @@ Action floodFill() {
     if (!goal_reached) {
         goal_reached = (cells[bot_x_pos + bot_y_pos * LENGTH].Distance == 0);
     }
-    else if (goal_cells_found == GOAL_CELLS) {
+    else if (goal_cells_found == goal_cells_existing) {
         goal_reached = false;
-        reset_cells(true);
+        if (goal_cells_existing == 4) {
+            goal_cells_existing = 1;
+            reset_cells(true);
+        }
+        else {
+            goal_cells_existing = 4;
+            reset_cells(false);
+        }
     }
 
     if (goal_reached) {

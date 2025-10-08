@@ -13,6 +13,7 @@ typedef struct {
     int Coordinate[2];
     int Distance;
     bool walls[4]; // wall[0] - North , wall[1] - East , wall[2] - South , wall[3] - West
+    bool Filled;
 } Cell;
 
 Action solver();
