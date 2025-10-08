@@ -24,7 +24,7 @@ void recalculateFloodfill();
 void shiftQueueUp();
 void print_distances();
 void print_queue();
-void reset_cells();
+void reset_cells(bool);
 bool detectWalls();
 
 #endif

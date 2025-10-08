@@ -6,6 +6,7 @@
 Cell cells[AREA];
 bool cellFilled[AREA];
 #define MAX_QUEUE 512
+#define GOAL_CELLS 4
 Cell queue[MAX_QUEUE+1];
 int queueSize = 0;
 bool init = true;
@@ -22,12 +23,13 @@ int bot_y_pos = 0;
 int left_cell_distance;
 int right_cell_distance;
 int front_cell_distance;
+int goal_cells_found = 0;
 bool goal_reached = false;
 bool print_goal_message = true;
 char str[20];
 
 void init_grid(){ 
-    reset_cells();
+    reset_cells(false);
     queue[0] = cells[8 + (7 * LENGTH)];
     queue[1] = cells[8 + (8 * LENGTH)];
     queue[2] = cells[7 + (8 * LENGTH)];
@@ -109,19 +111,25 @@ void serviceQueue(){
 }
 
 void recalculateFloodfill(){
-    reset_cells();
-    queue[0] = cells[8 + (7 * LENGTH)];
-    queue[1] = cells[8 + (8 * LENGTH)];
-    queue[2] = cells[7 + (8 * LENGTH)];
-    queue[3] = cells[7 + (7 * LENGTH)];
-    queueSize = 4;
+    reset_cells(goal_cells_found == GOAL_CELLS);
+    if (goal_cells_found != GOAL_CELLS) {
+        queue[0] = cells[8 + (7 * LENGTH)];
+        queue[1] = cells[8 + (8 * LENGTH)];
+        queue[2] = cells[7 + (8 * LENGTH)];
+        queue[3] = cells[7 + (7 * LENGTH)];
+        queueSize = 4;
+    }
+    else {
+        queue[0] = cells[0];
+        queueSize = 1;
+    }
     while (queueSize > 0){
         serviceQueue();
     }
     print_distances();
 }
 
-void reset_cells(){
+void reset_cells(bool goal_is_start){
     for (int i = 0; i < LENGTH; i++){
         for (int j = 0; j < LENGTH; j++){
             cells[j+LENGTH*i].Distance = 1;
@@ -136,14 +144,20 @@ void reset_cells(){
             }
         }
     }
-    cells[8 + (7 * LENGTH)].Distance = 0;
-    cells[8 + (8 * LENGTH)].Distance = 0;
-    cells[7 + (8 * LENGTH)].Distance = 0;
-    cells[7 + (7 * LENGTH)].Distance = 0;
-    cellFilled[8 + (7 * LENGTH)] = true;
-    cellFilled[8 + (8 * LENGTH)] = true;
-    cellFilled[7 + (8 * LENGTH)] = true;
-    cellFilled[7 + (7 * LENGTH)] = true;
+    if (!goal_is_start) {
+        cells[8 + (7 * LENGTH)].Distance = 0;
+        cells[8 + (8 * LENGTH)].Distance = 0;
+        cells[7 + (8 * LENGTH)].Distance = 0;
+        cells[7 + (7 * LENGTH)].Distance = 0;
+        cellFilled[8 + (7 * LENGTH)] = true;
+        cellFilled[8 + (8 * LENGTH)] = true;
+        cellFilled[7 + (8 * LENGTH)] = true;
+        cellFilled[7 + (7 * LENGTH)] = true;
+    }
+    else {
+        cells[0].Distance = 0;
+        cellFilled[0] = true;
+    }
 }
 
 Action solver() {
@@ -372,19 +386,16 @@ Action floodFill() {
     if (!goal_reached) {
         goal_reached = (cells[bot_x_pos + bot_y_pos * LENGTH].Distance == 0);
     }
+    else if (goal_cells_found == GOAL_CELLS) {
+        goal_reached = false;
+        reset_cells(true);
+    }
 
     if (goal_reached) {
+        goal_cells_found++;
         if (print_goal_message) {
             debug_log("PATH TO GOAL FOUND!");
             print_goal_message = false;
-        }
-    }
-    else {
-        if (API_wallFront()) {
-            nextMove = LEFT;
-            if (API_wallLeft()) {
-                nextMove = RIGHT;
-            }
         }
     }
 
