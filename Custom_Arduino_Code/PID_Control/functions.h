@@ -1,64 +1,10 @@
-const int ENCODER_LEFT_A = 2;
-const int ENCODER_RIGHT_A = 3;
+#include "variables.h"
 
-const int ENCODER_LEFT_B = 4;
-const int ENCODER_RIGHT_B = 5;
+void set_left_speed(float vel, float dtime){
+  float error = vel - left_velocity;
 
-const int MOTOR_LEFT_DIR = 7;
-const int MOTOR_RIGHT_DIR = 8;
-
-const int MOTOR_LEFT_PWM = 9;
-const int MOTOR_RIGHT_PWM = 10;
-
-float total_rotations_right = 0;
-float total_rotations_left = 0;
-float unfiltered_left_vel = 0;
-float unfiltered_right_vel = 0;
-float unfiltered_left_vel_prev = 0;
-float unfiltered_right_vel_prev = 0;
-float left_velocity = 0;
-float right_velocity = 0;
-
-float control_signal_left = 0;
-float control_signal_left_prev = 0;
-float unfiltered_control_signal_left = 0;
-float unfiltered_control_signal_left_prev = 0;
-
-float control_signal_right = 0;
-float control_signal_right_prev = 0;
-float unfiltered_control_signal_right = 0;
-float unfiltered_control_signal_right_prev = 0;
-
-float left_velocity_prev = 0;
-float right_velocity_prev = 0;
-volatile int left_encoderCount = 0;
-volatile int right_encoderCount = 0;
-volatile int left_phaseA = 0;
-volatile int left_phaseB = 0;
-volatile int right_phaseA = 0;
-volatile int right_phaseB = 0;
-
-float wheel_circumference = 3.0 * 3.14; // in cm
-int counts_per_rev = 12;
-int gear_ratio = 10;
-int sampling_time = 20; // in ms 
-long last_time;
-float net_left_error = 0;
-float last_left_error = 0;
-float net_right_error = 0;
-float last_right_error = 0;
-
-float kp = 2.6;
-float ki = 17.25;
-float kd = 0.025;
-
-bool end_test = false;
-
-void set_left_speed(float speed, float time){
-  float error = speed - left_velocity;
-
-  float integral = net_left_error + (error * time/1000.0);
-  float derivative = 1000 * (error - last_left_error) / time;
+  float integral = net_left_error + (error * dtime/1000.0f);
+  float derivative = 1000.0f * (error - last_left_error) / dtime;
 
   net_left_error = integral;
   last_left_error = error;
@@ -67,7 +13,7 @@ void set_left_speed(float speed, float time){
   unfiltered_control_signal_left_prev = unfiltered_control_signal_left;
   unfiltered_control_signal_left = kp * error + ki * integral + kd * derivative;
 
-  //control_signal_left = control_signal_left_prev * 0.3891 + 0.3055 * (unfiltered_control_signal_left + unfiltered_control_signal_left_prev);
+  //control_signal_left = control_signal_right_prev * 0.3891 + 0.3055 * (unfiltered_control_signal_right + unfiltered_control_signal_right_prev);
   control_signal_left = control_signal_left_prev * 0.4524 + 0.2738 * (unfiltered_control_signal_left + unfiltered_control_signal_left_prev);
   int pwm;
   if (fabs(control_signal_left) > 240)
@@ -77,14 +23,14 @@ void set_left_speed(float speed, float time){
   
 
   analogWrite(MOTOR_LEFT_PWM, pwm);
-  digitalWrite(MOTOR_LEFT_DIR, (-speed > 0));
+  digitalWrite(MOTOR_LEFT_DIR, control_signal_left < 0);
 }
 
-void set_right_speed(float speed, float time){
-  float error = speed - right_velocity;
+void set_right_speed(float vel, float dtime){
+  float error = vel - right_velocity;
 
-  float integral = net_right_error + (error * time/1000.0);
-  float derivative = 1000 * (error - last_right_error) / time;
+  float integral = net_right_error + (error * dtime/1000.0f);
+  float derivative = 1000.0f * (error - last_right_error) / dtime;
 
   net_right_error = integral;
   last_right_error = error;
@@ -103,25 +49,41 @@ void set_right_speed(float speed, float time){
   
 
   analogWrite(MOTOR_RIGHT_PWM, pwm);
-  digitalWrite(MOTOR_RIGHT_DIR, (speed > 0));
+  digitalWrite(MOTOR_RIGHT_DIR, control_signal_right > 0);
 }
 
-void compute_right_speed(int right_count, int time){
+void compute_right_speed(int right_count, int dtime){
   right_velocity_prev = right_velocity;
-  unfiltered_right_vel_prev =  1000 * total_rotations_right * wheel_circumference / time; 
+  unfiltered_right_vel_prev =  unfiltered_right_vel; 
   total_rotations_right = right_count / ((float)counts_per_rev * gear_ratio);
-  unfiltered_right_vel = 1000 * total_rotations_right * wheel_circumference / time; 
+  if (digitalRead(MOTOR_RIGHT_DIR))
+    unfiltered_right_vel = fabs(1000.0f * total_rotations_right * wheel_circumference / dtime);
+  else
+    unfiltered_right_vel = -fabs(1000.0f * total_rotations_right * wheel_circumference / dtime);
 
   right_velocity = -0.222 * right_velocity_prev + 0.6109 * (unfiltered_right_vel + unfiltered_right_vel_prev);
+
+  if (digitalRead(MOTOR_RIGHT_DIR))
+    right_velocity = fabs(right_velocity);
+  else
+    right_velocity = -fabs(right_velocity);
 }
 
-void compute_left_speed(int left_count, int time){
+void compute_left_speed(int left_count, int dtime){
   left_velocity_prev = left_velocity;
-  unfiltered_left_vel_prev =  1000 * total_rotations_left * wheel_circumference / time; 
+  unfiltered_left_vel_prev =  unfiltered_left_vel; 
   total_rotations_left = left_count / ((float)counts_per_rev * gear_ratio);
-  unfiltered_left_vel = 1000 * total_rotations_left * wheel_circumference / time; 
+  if (digitalRead(MOTOR_LEFT_DIR))
+    unfiltered_left_vel = -fabs(1000.0f * total_rotations_left * wheel_circumference / dtime);
+  else
+    unfiltered_left_vel = fabs(1000.0f * total_rotations_left * wheel_circumference / dtime);
 
   left_velocity = -0.222 * left_velocity_prev + 0.6109 * (unfiltered_left_vel + unfiltered_left_vel_prev);
+
+  if (digitalRead(MOTOR_LEFT_DIR))
+    left_velocity = -fabs(left_velocity);
+  else
+    left_velocity = fabs(left_velocity);
 }
 
 void print_left_speed(){
@@ -145,37 +107,87 @@ void print_speeds(unsigned long t) {
 }
 
 // ISR Functions
-void readLeftEncoder(){
+void readLeftEncoderA(){
   int phaseA = digitalRead(ENCODER_LEFT_A);
   int phaseB = digitalRead(ENCODER_LEFT_B);
+  //int phaseA = bitRead(PIND, 2);
+  //int phaseB = bitRead(PIND, 4);
+
+  //int current_pair = (phaseA << 1) + phaseB;
+  //int past_pair = (left_phaseA << 1) + left_phaseB;
+  //int sequence = (past_pair << 2) + current_pair;
 
   int encoded = (phaseA << 1) | phaseB;
   int sequence = (left_phaseA << 2) | encoded;
 
   if (sequence == 0b0001 || sequence == 0b0111 || sequence == 0b1110 || sequence == 0b1000){
-    left_encoderCount--;
+    left_count++;
   }
   else if (sequence == 0b0010 || sequence == 0b1011 || sequence == 0b1101 || sequence == 0b0100){
-    left_encoderCount++;
+    left_count--;
   }
 
   left_phaseA = phaseA;
   left_phaseB = phaseB;
 }
 
-void readRightEncoder(){
+void readLeftEncoderB(){
+  int phaseA = digitalRead(ENCODER_LEFT_A);
+  int phaseB = digitalRead(ENCODER_LEFT_B);
+  //int phaseA = bitRead(PIND, 2);
+  //int phaseB = bitRead(PIND, 4);
+
+  //int current_pair = (phaseA << 1) + phaseB;
+  //int past_pair = (left_phaseA << 1) + left_phaseB;
+  //int sequence = (past_pair << 2) + current_pair;
+
+  int encoded = (phaseA << 1) | phaseB;
+  int sequence = (left_phaseA << 2) | encoded;
+
+  if (sequence == 0b0001 || sequence == 0b0111 || sequence == 0b1110 || sequence == 0b1000){
+    left_count++;
+  }
+  else if (sequence == 0b0010 || sequence == 0b1011 || sequence == 0b1101 || sequence == 0b0100){
+    left_count--;
+  }
+
+  left_phaseA = phaseA;
+  left_phaseB = phaseB;
+}
+
+void readRightEncoderA(){
   int phaseA = digitalRead(ENCODER_RIGHT_A);
   int phaseB = digitalRead(ENCODER_RIGHT_B);
 
   int encoded = (phaseA << 1) | phaseB;
   int sequence = (right_phaseA << 2) | encoded;
+  //int current_pair = (phaseA << 1) + phaseB;
+  //int past_pair = (right_phaseA << 1) + right_phaseB;
+  //int sequence = (past_pair << 2) + current_pair;
 
-  if (sequence == 0b0001 || sequence == 0b0111 || sequence == 0b1110 || sequence == 0b1000){
-    right_encoderCount--;
-  }
-  else if (sequence == 0b0010 || sequence == 0b1011 || sequence == 0b1101 || sequence == 0b0100){
-    right_encoderCount++;
-  }
+  if (sequence == 0b0001 || sequence == 0b0111 || sequence == 0b1110 || sequence == 0b1000)
+    right_count--;
+  else if (sequence == 0b0010 || sequence == 0b1011 || sequence == 0b1101 || sequence == 0b0100)
+    right_count++;
+
+  right_phaseA = phaseA;
+  right_phaseB = phaseB;
+}
+
+void readRightEncoderB(){
+  int phaseA = digitalRead(ENCODER_RIGHT_A);
+  int phaseB = digitalRead(ENCODER_RIGHT_B);
+
+  int encoded = (phaseA << 1) | phaseB;
+  int sequence = (right_phaseA << 2) | encoded;
+  //int current_pair = (phaseA << 1) + phaseB;
+  //int past_pair = (right_phaseA << 1) + right_phaseB;
+  //int sequence = (past_pair << 2) + current_pair;
+
+  if (sequence == 0b0001 || sequence == 0b0111 || sequence == 0b1110 || sequence == 0b1000)
+    right_count--;
+  else if (sequence == 0b0010 || sequence == 0b1011 || sequence == 0b1101 || sequence == 0b0100)
+    right_count++;
 
   right_phaseA = phaseA;
   right_phaseB = phaseB;

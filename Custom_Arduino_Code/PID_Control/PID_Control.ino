@@ -1,5 +1,4 @@
 #include "functions.h"
-#include <util/atomic.h>
 
 void setup() {
   Serial.begin(115200);
@@ -14,8 +13,10 @@ void setup() {
   pinMode(ENCODER_RIGHT_A, INPUT_PULLUP);
   pinMode(ENCODER_RIGHT_B, INPUT_PULLUP);
 
-  attachInterrupt(digitalPinToInterrupt(ENCODER_LEFT_A), readLeftEncoder, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(ENCODER_RIGHT_A), readRightEncoder, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENCODER_LEFT_A), readLeftEncoderA, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENCODER_RIGHT_A), readRightEncoderA, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENCODER_LEFT_B), readLeftEncoderB, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENCODER_RIGHT_B), readRightEncoderB, CHANGE);
 
   last_time = millis();
 
@@ -23,47 +24,43 @@ void setup() {
 }
 
 void loop() {
-  float time_passed = millis() - last_time;
-  if (time_passed >= sampling_time && !end_test){
-    int left_count, right_count;
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-      left_count = left_encoderCount;
-      right_count = right_encoderCount;
-      left_encoderCount = 0;
-      right_encoderCount = 0;
-    }
+  long now = millis();
+  float time_passed = now - last_time;
+  if (time_passed >= sampling_time){
+    int left_count_change, right_count_change;
+    noInterrupts();
+      left_count_change = left_count - left_count_prev;
+      right_count_change = right_count - right_count_prev;
+      left_count_prev = left_count;
+      right_count_prev = right_count;
+    interrupts();
 
-    compute_left_speed(left_count, time_passed);
-    compute_right_speed(right_count, time_passed);
+    compute_left_speed(left_count_change, time_passed);
+    compute_right_speed(right_count_change, time_passed);
 
     //print_left_speed();
     //print_right_speed();
 
-    last_time = millis();
+    last_time = now;
 
     print_speeds(last_time);
 
     if (last_time < 5000){
-      set_left_speed(100, time_passed);   // left wheel forward at 50 cm/s
-      set_right_speed(100, time_passed); // right wheel backward at about 40% power
+      set_left_speed(3, time_passed);  
+      set_right_speed(3, time_passed); 
     }
     else if (5000 <= last_time && last_time < 10000){
-      set_left_speed(50, time_passed);
-      set_right_speed(50, time_passed);
+      set_left_speed(-7, time_passed);
+      set_right_speed(-7, time_passed);
     }
     else{
       set_left_speed(0, time_passed);
       set_right_speed(0, time_passed);
     }
 
-    if (last_time > 15000){
-      end_test = true;
+    if (last_time > 16000){
+      Serial.end();
     }
-  }
-
-  if (end_test){
-    Serial.end();
-    exit(0);
   }
 }
 

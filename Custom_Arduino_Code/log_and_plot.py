@@ -2,7 +2,7 @@ import serial, time
 import pandas as pd
 import matplotlib.pyplot as plt
 
-ser = serial.Serial('COM4', 115200, timeout=1)  # ensure COM port is correct and free
+ser = serial.Serial('COM5', 115200, timeout=1)  # ensure COM port is correct and free
 
 with open('speeds.txt', 'w') as f:
     start = time.time()
@@ -25,12 +25,12 @@ df['time_s'] = df['time_ms'] / 1000.0
 
 # Define target speeds according to your Arduino phases
 # Phase 1: 0–5 s, Phase 2: 5–10 s, Phase 3: 10+ s
-df['left_target'] = 0
-df['right_target'] = 0
-df.loc[df['time_s'] < 5, 'left_target'] = 100
-df.loc[df['time_s'] < 5, 'right_target'] = 100
-df.loc[(df['time_s'] >= 5) & (df['time_s'] < 10), 'left_target'] = 50
-df.loc[(df['time_s'] >= 5) & (df['time_s'] < 10), 'right_target'] = 50
+df['left_target'] = 0.0
+df['right_target'] = 0.0
+df.loc[df['time_s'] < 5, 'left_target'] = 3.0
+df.loc[df['time_s'] < 5, 'right_target'] = 3.0
+df.loc[(df['time_s'] >= 5) & (df['time_s'] < 10), 'left_target'] = -7.0
+df.loc[(df['time_s'] >= 5) & (df['time_s'] < 10), 'right_target'] = -7.0
 
 # Plot actual vs target speeds
 plt.figure(figsize=(10,5))
