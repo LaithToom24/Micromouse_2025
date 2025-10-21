@@ -42,17 +42,22 @@ volatile int right_phaseA = 0;
 volatile int right_phaseB = 0;
 
 float wheel_circumference = 3.0 * 3.14; // in cm
-int counts_per_rev = 12 * 130/3;
+float counts_per_rev = 12 * 130/3;
 int gear_ratio = 10;
-int sampling_time = 20; // in ms 
-long last_time;
+int sampling_time = 10; // in ms 
+float last_time;
 float net_left_error = 0;
 float last_left_error = 0;
 float net_right_error = 0;
 float last_right_error = 0;
 
-float kp = 35;
-float ki = 220;
-float kd = 1.15;
+float low_pass_coeff_b = 0.8818;
+float low_pass_coeff_a = 0.0591;
 
+float kp = 25;
+float ki = 230;
+float kd = 2;
+
+bool left_saturated = false;
+bool right_saturated = false;
 bool end_test = false;

@@ -1,9 +1,16 @@
 #include "variables.h"
 
 void set_left_speed(float vel, float dtime){
+  if (fabs(vel) < 0.1){
+    analogWrite(MOTOR_LEFT_PWM, 0);
+    digitalWrite(MOTOR_LEFT_DIR, 0);
+    return;
+  }
   float error = vel - left_velocity;
 
-  float integral = net_left_error + (error * dtime/1000.0f);
+  float integral = net_left_error;
+  if (!left_saturated)
+    integral += error * dtime/1000.0f;
   float derivative = 1000.0f * (error - last_left_error) / dtime;
 
   net_left_error = integral;
@@ -13,10 +20,10 @@ void set_left_speed(float vel, float dtime){
   unfiltered_control_signal_left_prev = unfiltered_control_signal_left;
   unfiltered_control_signal_left = kp * error + ki * integral + kd * derivative;
 
-  //control_signal_left = control_signal_right_prev * 0.3891 + 0.3055 * (unfiltered_control_signal_right + unfiltered_control_signal_right_prev);
-  control_signal_left = control_signal_left_prev * 0.4524 + 0.2738 * (unfiltered_control_signal_left + unfiltered_control_signal_left_prev);
+  control_signal_left = low_pass_coeff_b * control_signal_left_prev + low_pass_coeff_a * (unfiltered_control_signal_left + unfiltered_control_signal_left_prev);
   int pwm;
-  if (fabs(control_signal_left) > 240)
+  left_saturated = fabs(control_signal_left) > 240;
+  if (left_saturated)
     pwm = 240;
   else
     pwm = fabs(control_signal_left);
@@ -27,9 +34,16 @@ void set_left_speed(float vel, float dtime){
 }
 
 void set_right_speed(float vel, float dtime){
+  if (fabs(vel) < 0.1){
+    analogWrite(MOTOR_RIGHT_PWM, 0);
+    digitalWrite(MOTOR_RIGHT_DIR, 0);
+    return;
+  }
   float error = vel - right_velocity;
 
-  float integral = net_right_error + (error * dtime/1000.0f);
+  float integral = net_right_error;
+  if (!right_saturated)
+    integral += (error * dtime/1000.0f);
   float derivative = 1000.0f * (error - last_right_error) / dtime;
 
   net_right_error = integral;
@@ -39,10 +53,10 @@ void set_right_speed(float vel, float dtime){
   unfiltered_control_signal_right_prev = unfiltered_control_signal_right;
   unfiltered_control_signal_right = kp * error + ki * integral + kd * derivative;
 
-  //control_signal_right = control_signal_right_prev * 0.3891 + 0.3055 * (unfiltered_control_signal_right + unfiltered_control_signal_right_prev);
-  control_signal_right = control_signal_right_prev * 0.4524 + 0.2738 * (unfiltered_control_signal_right + unfiltered_control_signal_right_prev);
+  control_signal_right = low_pass_coeff_b * control_signal_right_prev + low_pass_coeff_a * (unfiltered_control_signal_right + unfiltered_control_signal_right_prev);
   int pwm;
-  if (fabs(control_signal_right) > 240)
+  right_saturated = fabs(control_signal_right) > 240;
+  if (right_saturated)
     pwm = 240;
   else
     pwm = fabs(control_signal_right);
@@ -61,7 +75,7 @@ void compute_right_speed(int right_count, int dtime){
   else
     unfiltered_right_vel = -fabs(1000.0f * total_rotations_right * wheel_circumference / dtime);
 
-  right_velocity = -0.222 * right_velocity_prev + 0.6109 * (unfiltered_right_vel + unfiltered_right_vel_prev);
+  right_velocity = low_pass_coeff_b * right_velocity_prev + low_pass_coeff_a * (unfiltered_right_vel + unfiltered_right_vel_prev);
 
   if (digitalRead(MOTOR_RIGHT_DIR))
     right_velocity = fabs(right_velocity);
@@ -78,7 +92,7 @@ void compute_left_speed(int left_count, int dtime){
   else
     unfiltered_left_vel = fabs(1000.0f * total_rotations_left * wheel_circumference / dtime);
 
-  left_velocity = -0.222 * left_velocity_prev + 0.6109 * (unfiltered_left_vel + unfiltered_left_vel_prev);
+  left_velocity = low_pass_coeff_b * left_velocity_prev + low_pass_coeff_a * (unfiltered_left_vel + unfiltered_left_vel_prev);
 
   if (digitalRead(MOTOR_LEFT_DIR))
     left_velocity = -fabs(left_velocity);

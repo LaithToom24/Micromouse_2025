@@ -18,13 +18,13 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(ENCODER_LEFT_B), readLeftEncoderB, CHANGE);
   attachInterrupt(digitalPinToInterrupt(ENCODER_RIGHT_B), readRightEncoderB, CHANGE);
 
-  last_time = millis();
+  last_time = micros()/1000.0;
 
   //Serial.println("Starting test!");
 }
 
 void loop() {
-  long now = millis();
+  float now = micros()/1000.0;
   float time_passed = now - last_time;
   if (time_passed >= sampling_time){
     int left_count_change, right_count_change;

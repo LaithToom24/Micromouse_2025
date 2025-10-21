@@ -2,7 +2,7 @@ import serial, time
 import pandas as pd
 import matplotlib.pyplot as plt
 
-ser = serial.Serial('COM5', 115200, timeout=1)  # ensure COM port is correct and free
+ser = serial.Serial('COM4', 115200, timeout=1)  # ensure COM port is correct and free
 
 with open('speeds.txt', 'w') as f:
     start = time.time()

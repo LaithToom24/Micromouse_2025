@@ -1,24 +1,36 @@
+import serial, time
 import pandas as pd
 import matplotlib.pyplot as plt
 
+ser = serial.Serial('COM4', 115200, timeout=1)  # ensure COM port is correct and free
+
+with open('speeds.txt', 'w') as f:
+    start = time.time()
+    while time.time() - start < 15:
+        line = ser.readline().decode(errors='ignore')
+        if line:
+            f.write(line)
+
+ser.close()
+
 # Load CSV file; convert columns to numeric
-df = pd.read_csv('speeds.txt', names=['time_ms', 'left_speed', 'right_speed'])
-df['time_ms'] = pd.to_numeric(df['time_ms'], errors='coerce')
+df = pd.read_csv('speeds.txt', names=['left_speed', 'right_speed', 'time_us'])
+df['time_us'] = pd.to_numeric(df['time_us'], errors='coerce')
 df['left_speed'] = pd.to_numeric(df['left_speed'], errors='coerce')
 df['right_speed'] = pd.to_numeric(df['right_speed'], errors='coerce')
 df = df.dropna()
 
 # Convert time to seconds
-df['time_s'] = df['time_ms'] / 1000.0
+df['time_s'] = df['time_us'] / 1000000.0
 
 # Define target speeds according to your Arduino phases
 # Phase 1: 0–5 s, Phase 2: 5–10 s, Phase 3: 10+ s
 df['left_target'] = 0.0
 df['right_target'] = 0.0
-df.loc[df['time_s'] < 5, 'left_target'] = 3.0
-df.loc[df['time_s'] < 5, 'right_target'] = 3.0
-df.loc[(df['time_s'] >= 5) & (df['time_s'] < 10), 'left_target'] = -7.0
-df.loc[(df['time_s'] >= 5) & (df['time_s'] < 10), 'right_target'] = -7.0
+df.loc[df['time_s'] < 10, 'left_target'] = -5.0
+df.loc[df['time_s'] < 10, 'right_target'] = -5.0
+#df.loc[(df['time_s'] >= 5) & (df['time_s'] < 10), 'left_target'] = -7.0
+#df.loc[(df['time_s'] >= 5) & (df['time_s'] < 10), 'right_target'] = -7.0
 
 # Plot actual vs target speeds
 plt.figure(figsize=(10,5))
@@ -34,4 +46,3 @@ plt.legend()
 plt.grid(True)
 plt.savefig("speed_test.png");
 plt.show()
-
