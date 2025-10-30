@@ -1,16 +1,18 @@
 #include <stdint.h>
 #include <stdbool.h>
+#include <math.h>
 
 /* VARIABLES */
 
 int sampling_time = 10000; // in microseconds (us)
 int control_loops = 0; // number of control loops (reset to zero after reaching velocity_window)
 int velocity_window = 10; // in number of control loops
-float wheel_circumference = 3.14 * 3; // in centimeters (cm)
-long int current_time, last_time_ctrl, last_time_vel;
-int debounce_time = 200; // in us
-
-int right_phaseA, right_phaseB, left_phaseA, left_phaseB = 0;
+float wheel_circumference = M_PI * 3; // in centimeters (cm)
+long int current_time, last_time;
+int debounce_time = 5; // in us
+float left_target, right_target;
+bool is_turning = false;
+bool done_turning = true;
 
 // Data definition: Motor
 typedef struct{
@@ -43,6 +45,8 @@ typedef struct{
   // signed PWM signal computed by PID controller using feedback
   // the control signal consists of a direction (+ or -) and magnitude (PWM value between 0 and 240)
   float control[2] = {0};
+  // the filtered control signal consists of a direction (+ or -) and magnitude (PWM value between 0 and 240)
+  float filtered_control[2] = {0};
   // determines motor orientation (if motor is on left or right side)
   bool LEFT;
   // true if control signal reaches or surpasses threshold
@@ -69,6 +73,14 @@ typedef struct{
   float Kp;
   float Ki;
   float Kd;
+  // coefficients for low-pass filter of derivative
+  float b_d;
+  float a_d;
+  // coefficients for low-pass filter of control
+  float b_c;
+  float a_c;
+  // encoder count for rotation
+  volatile int rotational_encoder_count = 0;
 } Motor;
 
 Motor left_motor;
@@ -81,15 +93,19 @@ void init_motor(Motor* motor, unsigned short int PWM, unsigned short int DIR, un
 void set_PID_coeffs(Motor* motor, float Kp, float Ki, float Kd);
 void compute_speed(Motor* motor); // Use measured encoder counts recieved from motor to estimate motor speed
 void compute_control(Motor* motor, float target); // Set motor to target speed using feedback PID control
-void set_speed(Motor motor); // Set motor speed according to computed control sinal
+void set_speeds(Motor motor); // Set motor speed according to computed control sinal
+void compute_lowpass_filter_coeffs(Motor* motor, int sampling_time, float cutoff_freq);
 
 // Paired motor functions
 void compute_speeds(); // Use measured encoder counts to estimate motor speeds. Also updates derivative term of PID controller.
 void compute_controls(float left_target, float right_target); // The PID controller. Does not update derivative term; that is handled by compute_speeds()
-void set_speeds(); // Set respective motor speeds according to computed respective control signal
+void send_controls(); // Set respective motor speeds according to computed respective control signal
 void print_speeds(long int time); // Used for serial logging and plotting measured speeds
 void print_RPMs(long int time); // Used for serial logging and plotting measured RPMs
 void print_controls(long int time); // Used for serial logging and plotting computed controls
+void print_speeds_and_controls(long int time); // Used for serial logging and plotting estimated speeds and computed controls
+void set_targets(float left, float right);
+bool turn(float degs);
 
 // ISR
 void readLeftEncoderA();
