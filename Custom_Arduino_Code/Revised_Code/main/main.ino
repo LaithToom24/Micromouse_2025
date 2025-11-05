@@ -2,10 +2,10 @@
 
 int control_period = 10000; // update control system every 5000 us = 5 ms
 int velocity_period = 4; // update velocity every four control loops
-int position_period = 1;
+int position_period = 4;
 
-Motor left_motor(9, 7, 2, 4, 7, 39.0f, 3.0f, true, 2.60f, 19.0f, 21.0f, 0.5f, 1.0f, 1.0f, 0.0f, 0.0f, control_period, velocity_period, position_period, 2.0f, 7.0f);
-Motor right_motor(10, 8, 3, 5, 7, 39.0f, 3.0f, false, 2.60f, 19.0f, 21.0f, 0.5f, 1.0f, 1.0f, 0.0f, 0.0f, control_period, velocity_period, position_period, 2.0f, 7.0f);
+Motor left_motor(9, 7, 2, 4, 7, 39.0f, 3.0f, true, 2.60f, 19.0f, 21.0f, 0.5f, 0.0f, 0.5f, 0.0f, 0.0f, control_period, velocity_period, position_period, 2.0f, 7.0f);
+Motor right_motor(10, 8, 3, 5, 7, 39.0f, 3.0f, false, 2.60f, 19.0f, 21.0f, 0.5f, 0.0f, 0.5f, 0.0f, 0.0f, control_period, velocity_period, position_period, 2.0f, 7.0f);
 
 void setup() {
   // put your setup code here, to run once:
@@ -18,8 +18,22 @@ void loop() {
   // put your main code here, to run repeatedly:
   
   unsigned long time = micros();  
+  static unsigned long last_time = 0;
   
-  ramp_test(time);
+  //ramp_test(time);
+
+  //turn(90);
+
+  opposite_speed(1.0f);
+
+  if ((time - last_time > (float)position_period*control_period)){
+      Serial.print(left_motor.get_pos(), 2);
+      Serial.print(",");
+      Serial.print(right_motor.get_pos(), 2);
+      Serial.print(",");
+      Serial.println(micros());
+      last_time = time;
+  }
   
 }
 
@@ -34,14 +48,14 @@ void right_isr(){
 // robot functions
 
 void step_test(unsigned long time){
-  static long last_time = 0;
+  static unsigned long last_time = 0;
 
   float vel = 0.0f;
 
   if (time < 10e6)
     vel = 3.0f;
 
-  straight(vel);
+  opposite_speed(vel);
 
   
   if ((time - last_time > control_period) && time < 15e6){
@@ -64,7 +78,7 @@ void step_test(unsigned long time){
 }
 
 void ramp_test(unsigned long time){
-  static long last_time = 0;
+  static unsigned long last_time = 0;
   static float vel;
 
   if (time < 10e6){
@@ -99,11 +113,19 @@ void ramp_test(unsigned long time){
 }
 
 
+void turn(float pos){
+  right_motor.set_pos(pos);
+  left_motor.set_pos(-pos);
+}
+
+
 void straight(float vel){
   right_motor.set_vel(vel);
   left_motor.set_vel(vel);
 }
 
-void turn(float deg){
-  return;
+void opposite_speed(float vel){
+  right_motor.set_vel(vel);
+  left_motor.set_vel(-vel);
 }
+

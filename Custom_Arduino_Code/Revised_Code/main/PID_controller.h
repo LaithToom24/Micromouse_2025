@@ -6,8 +6,8 @@ class PID_Controller
   public:
 
   PID_Controller();
-  PID_Controller(float Kp, float Ki, float Kd, int control_sampling_time, int variable_sampling_time, float cutoff_freq);
-  void setup(float Kp, float Ki, float Kd, int control_sampling_time, int variable_sampling_time, float cutoff_freq);
+  PID_Controller(float Kp, float Ki, float Kd, int control_sampling_time, int variable_sampling_time, float cutoff_freq, float max_control);
+  void setup(float Kp, float Ki, float Kd, int control_sampling_time, int variable_sampling_time, float cutoff_freq, float max_control);
   // Create a PID_Controller with values for proportional gain, integral gain, derivative gain, sampling period of process variable, 
   // and cutoff frequency for low-pass filter on derivative term.
   float process(float error, float measured, unsigned long now);
@@ -23,6 +23,7 @@ class PID_Controller
   float a_i;
   int ctrl_samp_time, var_samp_time;
   float control = 0;
+  float max_control;
   float error[2] = {0};
   float measured[2] = {0};
   float integral[2] = {0};
@@ -45,9 +46,10 @@ PID_Controller::PID_Controller(){
   b_d = (fs - M_PI * fc) / (fs + M_PI * fc);
   // Coeff for Difference Equation Implementation of Integrator
   a_i = 0.5e-6f * ctrl_samp_time;
+  max_control = 0;
 }
 
-PID_Controller::PID_Controller(float Kp, float Ki, float Kd, int control_sampling_time, int variable_sampling_time, float cutoff_freq){
+PID_Controller::PID_Controller(float Kp, float Ki, float Kd, int control_sampling_time, int variable_sampling_time, float cutoff_freq, float max_control){
   kp = Kp;
   ki = Ki;
   kd = Kd;
@@ -60,9 +62,10 @@ PID_Controller::PID_Controller(float Kp, float Ki, float Kd, int control_samplin
   b_d = (fs - M_PI * fc) / (fs + M_PI * fc);
   // Coeff for Difference Equation Implementation of Integrator
   a_i = 0.5e-6f * ctrl_samp_time;
+  this -> max_control = max_control;
 }
 
-void PID_Controller::setup(float Kp, float Ki, float Kd, int control_sampling_time, int variable_sampling_time, float cutoff_freq){
+void PID_Controller::setup(float Kp, float Ki, float Kd, int control_sampling_time, int variable_sampling_time, float cutoff_freq, float max_control){
   kp = Kp;
   ki = Ki;
   kd = Kd;
@@ -75,6 +78,7 @@ void PID_Controller::setup(float Kp, float Ki, float Kd, int control_sampling_ti
   b_d = (fs - M_PI * fc) / (fs + M_PI * fc);
   // Coeff for Difference Equation Implementation of Integrator
   a_i = 0.5 * 1e-6f * ctrl_samp_time;
+  this -> max_control = max_control;
 }
 
 float PID_Controller::process(float newError, float newMeasure, unsigned long now){
@@ -99,12 +103,12 @@ float PID_Controller::process(float newError, float newMeasure, unsigned long no
     integral[1] = integral[0] + a_i * (error[0] + error[1]); 
     // Anti-Windup by Saturating Integral with bounds [-PD/Ki, +PD/Ki]
     if (ki != 0) 
-      integral[1] = constrain(integral[1], -255.0f/ki, 255.0f/ki);
+      integral[1] = constrain(integral[1], -max_control/ki, max_control/ki);
 
     // Control signal
     control = ki * integral[1] + pd;
 
-    control = constrain(control, -255.0f, 255.0f); 
+    control = constrain(control, -max_control, max_control); 
 
     //Serial.println(pd);
 

@@ -1,0 +1,82 @@
+This is a C++ implementation of physical motor control and maze solving.
+
+_____________________________________________________________________________________________________________________________
+CONTROL 
+=============================================================================================================================
+Classes: PID_Controller, Motor
+-----------------------------------------------------------------------------------------------------------------------------
++++ PID_Controller:
+-----------------------------------------------------------------------------------------------------------------------------
++++++++ Context:
+-----------------------------------------------------------------------------------------------------------------------------
+Feedforward and feedback control are added to achieve optimal performance. The feedforward control serves to reduce the work 
+done by feedback and for faster initial target acquisition. For this implementation, a PID controller is used for the feedback 
+loop, and a proportional controller for feedforward. 
+-----------------------------------------------------------------------------------------------------------------------------
++++++++ Implementation:
+-----------------------------------------------------------------------------------------------------------------------------
+The PID controller is coded as a class while feedforward control is coded directly into the Motor class. PID controllers are 
+treated as objects, in which we will use a unique set of controllers per motor. For each motor, we seek to control wheel velocity 
+and wheel rotation, thus each motor requires two controllers. Furthermore, PID control is used for wall-following, thus a total 
+of five controllers will be required. Having a PID controller class helps standardize changes done to PID calculation and makes 
+it easy to deploy a PID controller where required. 
+
+Below is the definition of the PID controller in code.
+-----------------------------------------------------------------------------------------------------------------------------
+// PID definition
+class PID_Controller
+{
+  public:
+
+  PID_Controller();
+  PID_Controller(float Kp, float Ki, float Kd, int control_sampling_time, int variable_sampling_time, float cutoff_freq, float max_control);
+  void setup(float Kp, float Ki, float Kd, int control_sampling_time, int variable_sampling_time, float cutoff_freq, float max_control);
+  // Create a PID_Controller with values for proportional gain, integral gain, derivative gain, sampling period of process variable, 
+  // and cutoff frequency for low-pass filter on derivative term.
+  float process(float error, float measured, unsigned long now);
+  float process(unsigned long now);
+  // Gives the controller the error and outputs the appropriate control. 
+  int get_control_loops();
+
+  private:
+
+  float kp, ki, kd;
+  float fs, fc;
+  float a_d, b_d;
+  float a_i;
+  int ctrl_samp_time, var_samp_time;
+  float control = 0;
+  float max_control;
+  float error[2] = {0};
+  float measured[2] = {0};
+  float integral[2] = {0};
+  float derivative[2] = {0};
+  int control_loops = 0;
+  unsigned long last_time = 0;
+};
+-----------------------------------------------------------------------------------------------------------------------------
+kp, ki, and kd are the controller constants. 
+Kp represents the proportional gain (the strength of proportional control).
+Ki represents the integral gain (the strength of integral control).
+Kd represents the derivative gain (the strength of the derivative control).
+
+Typically, Kp is the largest constant, followed by Ki, and then Kd. Kp and Ki should make up the bulk of PID control, 
+and Kd should only serve to assist in smoothing the control. 
+
+Note on Derivative Control: The issue with derivative control is that it depends entirely on the quality of the measurement. 
+If measurements are inaccurate, and most importantly imprecise, such as noisy readings, then the derivative control will basically 
+fail. As such, in our implementation, the derivative includes a low-pass filter. The cutoff frequency for this filter is denoted 
+as fc in the code. Fc is expected to be in hertz.
+-----------------------------------------------------------------------------------------------------------------------------
+Since we are working with a digital microcontroller, everything we do is done in discrete time. Thus, we convert the continuous 
+controllers in the Laplace domain to discrete controllers in the Z-Domain using the Bilinear Transformation. The sampling time 
+we set for the controller is denoted as ctrl_samp_time. We also need a sampling time for the measurement.
+
+
+
+_____________________________________________________________________________________________________________________________
+
+_____________________________________________________________________________________________________________________________
+MAZE SOLVER
+=============================================================================================================================
+_____________________________________________________________________________________________________________________________
