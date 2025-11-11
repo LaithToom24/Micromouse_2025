@@ -1,4 +1,4 @@
-//#include <digitalWriteFast.h>
+#include <digitalWriteFast.h>
 #include <util/atomic.h>
 #include "PID_controller.hpp"
 #include <stdbool.h>
@@ -9,14 +9,14 @@ class Motor
   public: 
 
   Motor(int enb, int dir, int encoder_axorb, int encoder_b, int cpr, float gear_ratio, float wheel_diameter, bool left, float kf_v, float kp_v, float ki_v, float kd_v, float kp_p, float kf_p, float ki_p, float kd_p, int control_period, int velocity_period, int position_period, float cutoff_freq, float vel_maximum);
-  void init(void (*isr_AxorB), void (*isr_B));
+  void init(void (*isr_AxorB));
   void set_vel(float vel);
   void set_pos(float pos);
   float get_vel();
   float get_pos();
   float get_pwm();
-  void findDirection();
-  void countEncoder();
+  float get_forward();
+  void readEncoder();
 
   private:
 
@@ -28,15 +28,16 @@ class Motor
   float feedforward_gain_p = 0.0f;
   float vel_max = 16.0f;
   float count_to_vel;
+  float prev_vel = 0.0f;
 
   // pins
-  int ENB;
-  int DIR;
-  int dir_bit;
-  int ENCODER_AxorB;
-  int encoderAxorB_bit;
-  int ENCODER_B;
-  int encoderB_bit;
+  short ENB;
+  short DIR;
+  short dir_bit;
+  short ENCODER_AxorB;
+  short encoderAxorB_bit;
+  short ENCODER_B;
+  short encoderB_bit;
 
   // ports and pins
   volatile uint8_t *dir_port;
@@ -58,7 +59,6 @@ class Motor
   volatile long encoder_count;
   volatile int rotational_encoder_count;
   volatile unsigned long last_count_time;
-  volatile unsigned long last_findDir_time;
   float dcount[2] = {0};
   float dcount_avg[2] = {0};
   // signed pwm value to write to motor (sign represents direction)
@@ -66,7 +66,8 @@ class Motor
   float last_pwm = 0;
   bool last_dir = false;
   unsigned long last_control_time = 0;
-  volatile bool cw;
+  volatile bool old_B;
+  volatile bool old_AxorB;
 
   // motor orientation
   bool LEFT; 
@@ -137,25 +138,24 @@ Motor::Motor(int enb, int dir, int encoder_axorb, int encoder_b, int cpr, float 
     encoder_count = 0;
     rotational_encoder_count = 0;
     last_count_time = 0;
-    last_findDir_time = 0;
-    cw = false;
+    old_B = false;
+    old_AxorB = false;
   }
 
   feedforward_gain_v = kf_v * 255.0f/vel_max; 
   vel_max = vel_maximum;
-  count_to_vel = 3.0f * wheel_circumference * 1e6f / (PPR * (float)vel_period * (float)ctrl_period);
+  count_to_vel = 2.1f * wheel_circumference * 1e6f / (CPR * (float)vel_period * (float)ctrl_period);
 
   feedforward_gain_p = kf_p * vel_max / 360.0f;
 }
 
-void Motor::init(void (*isr_AxorB), void (*isr_B)){
+void Motor::init(void (*isr_AxorB)){
   pinMode(ENB, OUTPUT);
   pinMode(DIR, OUTPUT);
   pinMode(ENCODER_AxorB, INPUT_PULLUP);
   pinMode(ENCODER_B, INPUT_PULLUP);
 
   attachInterrupt(digitalPinToInterrupt(ENCODER_AxorB), isr_AxorB, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(ENCODER_B), isr_B, RISING);
 }
 
 void Motor::set_vel(float vel){
@@ -211,9 +211,7 @@ float Motor::update_vel(){
   float vel;
 
   dcount[0] = dcount[1];
-  //unsigned long dcount_num;
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE){
-    //dcount[1] = encoder_count;
     dcount[1] = encoder_count;
     // update last encoder count
     encoder_count = 0;
@@ -221,19 +219,14 @@ float Motor::update_vel(){
   
   dcount_avg[0] = dcount_avg[1];
   if (pwm != 0.0f)
-    dcount_avg[1] = 0.9875f * dcount_avg[0] + 0.0062f * (dcount[1] + dcount[0]);
+    dcount_avg[1] = 0.8818f * dcount_avg[0] + 0.0591f * (dcount[1] + dcount[0]);
   else
     dcount_avg[1] = (dcount[1] + dcount[0]) * 0.5f;
-    //dcount_avg[1] = -1.0f * dcount_avg[0] + 1.0f * (dcount[1] + dcount[0]);
 
   vel = count_to_vel * dcount_avg[1];
 
-  //Serial.println(dcount_avg[2], 3);
-
-  //if (pwm != 0.0f)
-  //  last_dir = (LEFT ^ bitRead(*dir_pin, dir_bit)) ? 1 : -1;
-  //else
-  //  last_dir = 0;
+  if (vel > vel_max)
+    return velocity;
 
   return vel;
 }
@@ -244,16 +237,14 @@ float Motor::update_pos(){
   long rcount;
   ATOMIC_BLOCK (ATOMIC_RESTORESTATE){
     rcount = rotational_encoder_count;
-    if (rotational_encoder_count >= PPR)
+    if (abs(rotational_encoder_count) >= 10*PPR)
       rotational_encoder_count = 0;
   }
 
-  //if (last_dir != 0)
-  //  pos = last_dir * (rcount * 360.0f / (8*PPR));
-  //else
-  //  pos = (pos < 0) ? -(rcount * 360.0f / (8*PPR)) : (rcount * 360.0f / (8*PPR));
+  pos = (rcount * 360.0f / (10*PPR));
 
-  pos = (rcount * 360.0f / (PPR));
+  if (pos > 360.0f)
+    return position;
 
   return pos;
 }
@@ -270,29 +261,43 @@ float Motor::get_pwm(){
   return pwm;
 }
 
-void Motor::findDirection(){
+void Motor::readEncoder(){
   unsigned long now = micros();
 
   // debounce 
-  if (now - last_count_time < 7)
+  if (now - last_count_time < 15)
     return;
 
-  cw = bitRead(*encoderAxorB_pin, encoderAxorB_bit);
+  bool new_B = bitRead(*encoderB_pin, encoderB_bit);
+  bool new_AxorB = bitRead(*encoderAxorB_pin, encoderAxorB_bit);
 
-  last_findDir_time = now;
-}
+  uint8_t newState = (new_B << 1) | new_AxorB;
 
-void Motor::countEncoder(){
-  unsigned long now = micros();
+  uint8_t oldState = (old_B << 1) | old_AxorB;
 
-  // debounce 
-  if (now - last_count_time < 7)
-    return;
-
-  if (bitRead(*encoderB_pin, encoderB_bit)){
-    LEFT ^ cw ? encoder_count++ : encoder_count--;
-    LEFT ^ cw ? rotational_encoder_count++ : rotational_encoder_count--;
+  if ((oldState == 0b00 && newState == 0b01) || (oldState == 0b01 && newState == 0b10) || (oldState == 0b10 && newState == 0b11) || (oldState == 0b11 && newState == 0b00)){
+    if (LEFT){
+      encoder_count++;
+      rotational_encoder_count++;
+    }
+    else{
+      encoder_count--;
+      rotational_encoder_count--;
+    }
   }
+  else if ((oldState == 0b00 && newState == 0b11) || (oldState == 0b11 && newState == 0b10) || (oldState == 0b10 && newState == 0b01) || (oldState == 0b01 && newState == 0b00)){
+    if (LEFT){
+      encoder_count--;
+      rotational_encoder_count--;
+    }
+    else{
+      encoder_count++;
+      rotational_encoder_count++;
+    }
+  }
+
+  old_B = new_B;
+  old_AxorB = new_AxorB;
 
   last_count_time = now;
 }
