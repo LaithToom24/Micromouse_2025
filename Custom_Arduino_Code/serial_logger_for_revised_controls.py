@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.signal import filtfilt, butter
 
-ser = serial.Serial('COM4', 115200, timeout=1)  # ensure COM port is correct and free
+ser = serial.Serial('COM5', 115200, timeout=1)  # ensure COM port is correct and free
 ser.flushInput()
 
 with open('speeds.txt', 'w') as f:

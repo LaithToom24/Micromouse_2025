@@ -8,18 +8,34 @@ class Motor
 {
   public: 
 
-  Motor(int enb, int dir, int encoder_axorb, int encoder_b, int cpr, float gear_ratio, float wheel_diameter, bool left, float kf_v, float kp_v, float ki_v, float kd_v, float kp_p, float kf_p, float ki_p, float kd_p, int control_period, int velocity_period, int position_period, float cutoff_freq, float vel_maximum);
-  void init(void (*isr_AxorB));
+  Motor();
+  // motor initialization
+  void set_motor_pins(int enb, int dir, int encoder_axorb, int encoder_b);
+  void set_interrupt(void (*isr_AxorB));
+  void set_motor_specs(int cpr, float gear_ratio, float wheel_diameter, float vel_maximum);
+  void set_velocity_controls(float kf, float kp, float ki, float kd, int control_period, int measurement_rate, float cutoff_freq);
+  void set_position_controls(float kf, float kp, float ki, float kd, int control_period, int measurement_rate, float cutoff_freq);
+  void set_motor_orientation(bool left);
+
+  // setter and getter functions
+  // the setter functions for vel and pos implement PID control
   void set_vel(float vel);
   void set_pos(float pos);
+  void reset_rotational_encoder_count();
   float get_vel();
   float get_pos();
   float get_pwm();
   float get_forward();
+
+  // returns whether or not the motor is part of a turn command
+  bool is_turning();
+
+  // read the encoder; meant to be the ISR for the encoder pin
   void readEncoder();
 
   private:
 
+  // measurement functions
   float update_vel();
   float update_pos();
 
@@ -57,7 +73,7 @@ class Motor
   float position = 0;
   float velocity = 0;
   volatile long encoder_count;
-  volatile int rotational_encoder_count;
+  volatile long rotational_encoder_count;
   volatile unsigned long last_count_time;
   float dcount[2] = {0};
   float dcount_avg[2] = {0};
@@ -68,6 +84,7 @@ class Motor
   unsigned long last_control_time = 0;
   volatile bool old_B;
   volatile bool old_AxorB;
+  bool isTurning = false;
 
   // motor orientation
   bool LEFT; 
@@ -77,13 +94,29 @@ class Motor
   PID_Controller position_controller;
   
   // controller settings
-  int ctrl_period;
-  int vel_period;
-  int pos_period;
+  int vel_ctrl_period;
+  int pos_ctrl_period;
+  int vel_rate;
+  int pos_rate;
 
 };
 
-Motor::Motor(int enb, int dir, int encoder_axorb, int encoder_b, int cpr, float gear_ratio, float wheel_diameter, bool left, float kf_v, float kp_v, float ki_v, float kd_v, float kp_p, float kf_p, float ki_p, float kd_p, int control_period, int velocity_period, int position_period, float cutoff_freq, float vel_maximum){
+// constructor
+Motor::Motor(){
+  velocity = 0.0f;
+  position = 0.0f;
+
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE){
+    encoder_count = 0;
+    rotational_encoder_count = 0;
+    last_count_time = 0;
+    old_B = false;
+    old_AxorB = false;
+  }
+}
+
+// initialization functions
+void Motor::set_motor_pins(int enb, int dir, int encoder_axorb, int encoder_b){
   ENB = enb;
   DIR = dir;
   ENCODER_AxorB = encoder_axorb;
@@ -118,46 +151,43 @@ Motor::Motor(int enb, int dir, int encoder_axorb, int encoder_b, int cpr, float 
     encoderB_bit = ENCODER_B - 8; 
   }
 
-  CPR = cpr * gear_ratio;
-  PPR = 4 * CPR;
-  LEFT = left;
-
-  wheel_circumference = wheel_diameter * M_PI; 
-
-  ctrl_period = control_period;
-  vel_period = velocity_period;
-  pos_period = position_period;
-
-  velocity_controller.setup(kp_v, ki_v, kd_v, control_period, velocity_period, cutoff_freq, 255.0f);
-  position_controller.setup(kp_p, ki_p, kd_p, control_period, position_period, cutoff_freq, vel_max);
-
-  velocity = 0.0f;
-  position = 0.0f;
-
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE){
-    encoder_count = 0;
-    rotational_encoder_count = 0;
-    last_count_time = 0;
-    old_B = false;
-    old_AxorB = false;
-  }
-
-  feedforward_gain_v = kf_v * 255.0f/vel_max; 
-  vel_max = vel_maximum;
-  count_to_vel = 2.1f * wheel_circumference * 1e6f / (CPR * (float)vel_period * (float)ctrl_period);
-
-  feedforward_gain_p = kf_p * vel_max / 360.0f;
-}
-
-void Motor::init(void (*isr_AxorB)){
   pinMode(ENB, OUTPUT);
   pinMode(DIR, OUTPUT);
   pinMode(ENCODER_AxorB, INPUT_PULLUP);
   pinMode(ENCODER_B, INPUT_PULLUP);
+}
 
+void Motor::set_interrupt(void (*isr_AxorB)){
   attachInterrupt(digitalPinToInterrupt(ENCODER_AxorB), isr_AxorB, CHANGE);
 }
 
+void Motor::set_motor_specs(int cpr, float gear_ratio, float wheel_diameter, float vel_maximum){
+  CPR = cpr * gear_ratio;
+  PPR = 4 * CPR;
+  wheel_circumference = wheel_diameter * M_PI; 
+  vel_max = vel_maximum;
+}
+
+void Motor::set_velocity_controls(float kf, float kp, float ki, float kd, int control_period, int measurement_rate, float cutoff_freq){
+  feedforward_gain_v = kf * 255.0f/vel_max; 
+  velocity_controller.setup(kp, ki, kd, control_period, measurement_rate, cutoff_freq, 255.0f);
+  vel_rate = measurement_rate;
+  vel_ctrl_period = control_period;
+  count_to_vel = 2.1f * wheel_circumference * 1e6f / (CPR * (float)vel_rate * (float)vel_ctrl_period);
+}
+
+void Motor::set_position_controls(float kf, float kp, float ki, float kd, int control_period, int measurement_rate, float cutoff_freq){
+  feedforward_gain_p = kf * vel_max / 360.0f;
+  position_controller.setup(kp, ki, kd, control_period, measurement_rate, cutoff_freq, vel_max);
+  pos_rate = measurement_rate;
+  pos_ctrl_period = control_period;
+}
+
+void Motor::set_motor_orientation(bool left){
+  LEFT = left;
+}
+
+// main loop functions
 void Motor::set_vel(float vel){
   unsigned long now = micros();
 
@@ -179,11 +209,18 @@ void Motor::set_vel(float vel){
   bitWrite(*dir_port, dir_bit, (LEFT ^ (pwm > 0)));
   analogWrite(ENB, fabs(pwm));
 
-  if (velocity_controller.get_control_loops() == vel_period)
+  if (velocity_controller.get_control_loops() == vel_rate)
     velocity = update_vel();
 }
 
 void Motor::set_pos(float pos){
+  //if (!isTurning && fabs(pos - position) > 10.0f){
+  //  isTurning = true;
+    //ATOMIC_BLOCK (ATOMIC_RESTORESTATE){
+    //  rotational_encoder_count = -10;
+    //}
+  //}
+
   unsigned long now = micros();
 
   pos = constrain(pos, -360.0f, 360.0f);
@@ -192,18 +229,20 @@ void Motor::set_pos(float pos){
 
   float error = pos - position;
 
-  if (fabs(error) > 10.0f)
-    vel += position_controller.process(pos - position, position, now);
+  if (fabs(error) > 10.0f){
+    vel += position_controller.process(error, position, now);
+  }
   else{
     position_controller.process(now);
     vel = 0;
+    //isTurning = false;
   }
 
   vel = constrain(vel, -vel_max, vel_max);
 
   set_vel(vel);
 
-  if (position_controller.get_control_loops() == pos_period)
+  if (position_controller.get_control_loops() == pos_rate)
     position = update_pos();
 }
 
@@ -225,7 +264,7 @@ float Motor::update_vel(){
 
   vel = count_to_vel * dcount_avg[1];
 
-  if (vel > vel_max)
+  if (fabs(vel) > vel_max)
     return velocity;
 
   return vel;
@@ -237,14 +276,14 @@ float Motor::update_pos(){
   long rcount;
   ATOMIC_BLOCK (ATOMIC_RESTORESTATE){
     rcount = rotational_encoder_count;
-    if (abs(rotational_encoder_count) >= 10*PPR)
-      rotational_encoder_count = 0;
+    //if (abs(rotational_encoder_count) >= 20*PPR)
+    //  rotational_encoder_count = 0;
   }
 
-  pos = (rcount * 360.0f / (10*PPR));
+  pos = (rcount * 360.0f / (10.0f*float(PPR)));
 
-  if (pos > 360.0f)
-    return position;
+  //if (fabs(pos) > 360.0f)
+  //  return position;
 
   return pos;
 }
@@ -261,12 +300,19 @@ float Motor::get_pwm(){
   return pwm;
 }
 
-void Motor::readEncoder(){
-  unsigned long now = micros();
+bool Motor::is_turning(){
+  return isTurning;
+}
 
+void Motor::reset_rotational_encoder_count(){
+  ATOMIC_BLOCK (ATOMIC_RESTORESTATE){
+    rotational_encoder_count = 0;
+  }
+}
+
+void Motor::readEncoder(){
   // debounce 
-  if (now - last_count_time < 15)
-    return;
+  delayMicroseconds(15);
 
   bool new_B = bitRead(*encoderB_pin, encoderB_bit);
   bool new_AxorB = bitRead(*encoderAxorB_pin, encoderAxorB_bit);
@@ -298,6 +344,4 @@ void Motor::readEncoder(){
 
   old_B = new_B;
   old_AxorB = new_AxorB;
-
-  last_count_time = now;
 }

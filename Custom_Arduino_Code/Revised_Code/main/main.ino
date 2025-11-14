@@ -1,8 +1,8 @@
 #include "motor.hpp"
 
 int control_period = 10000; // update control system every 10000 us = 10 ms
-int velocity_period = 4; // update velocity every four control loops
-int position_period = 1;
+int vel_rate = 4; // update velocity every four control loops
+int pos_rate = 1;
 
 // velocity controller settings
 float kf_v = 1.9f;
@@ -12,37 +12,57 @@ float kd_v = 0.5f;
 
 // rotational (wheel position) controller settings
 float kf_p = 0.0f;
-float kp_p = 1.0f;
+float kp_p = 2.0f;
 float ki_p = 0.0f;
 float kd_p = 0.0f;
 
-//Motor left_motor(9, 7, 2, 4, 7, 39.0f, 3.0f, true, 2.60f, 19.0f, 21.0f, 0.5f, 0.0f, 0.5f, 0.0f, 0.0f, control_period, velocity_period, position_period, 2.0f, 7.0f);
-//Motor right_motor(10, 8, 3, 5, 7, 39.0f, 3.0f, false, 2.60f, 19.0f, 21.0f, 0.5f, 0.0f, 0.5f, 0.0f, 0.0f, control_period, velocity_period, position_period, 2.0f, 7.0f);
+// creating motor objects
+Motor left_motor;
+Motor right_motor;
 
-Motor left_motor(9, 7, 2, 4, 7, 39.0f, 3.0f, true, kf_v, kp_v, ki_v, kd_v, kf_p, kp_p, ki_p, kd_p, control_period, velocity_period, position_period, 3.0f, 7.0f);
-Motor right_motor(10, 8, 3, 5, 7, 39.0f, 3.0f, false, kf_v, kp_v, ki_v, kd_v, kf_p, kp_p, ki_p, kd_p, control_period, velocity_period, position_period, 3.0f, 7.0f);
+bool turn_commanded = false;
 
 void setup() {
   Serial.begin(115200);
 
-  // Assign pins and interrupts
-  left_motor.init(left_isr_CLK);
-  right_motor.init(right_isr_CLK);
+  // left motor initialization
+  left_motor.set_motor_pins(9, 7, 2, 4);
+  left_motor.set_interrupt(left_isr_CLK);
+  left_motor.set_motor_specs(7, 39.0f, 3.0f, 7.0f);
+  left_motor.set_velocity_controls(kf_v, kp_v, ki_v, kd_v, control_period, vel_rate, 3.0f);
+  left_motor.set_position_controls(kf_p, kp_p, ki_p, kd_p, control_period, pos_rate, 1.0f);
+  left_motor.set_motor_orientation(true);
+
+  // right motor initialization
+  right_motor.set_motor_pins(10, 8, 3, 5);
+  right_motor.set_interrupt(right_isr_CLK);
+  right_motor.set_motor_specs(7, 39.0f, 3.0f, 7.0f);
+  right_motor.set_velocity_controls(kf_v, kp_v, ki_v, kd_v, control_period, vel_rate, 3.0f);
+  right_motor.set_position_controls(kf_p, kp_p, ki_p, kd_p, control_period, pos_rate, 1.0f);
+  right_motor.set_motor_orientation(false);
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-  
   unsigned long time = micros();  
   static unsigned long last_time = 0;
   
-  turn(90);
-
-  /*
-  if ((time - last_time > (float)position_period*control_period)){
+  turn(360*2);
+  
+  if ((time - last_time > (float)pos_rate*control_period)){
       Serial.print(left_motor.get_pos(), 2);
       Serial.print(",");
       Serial.print(right_motor.get_pos(), 2);
+      Serial.print(",");
+      Serial.println(micros());
+      last_time = time;
+  }
+  
+  /*
+  if ((time - last_time > (float)vel_rate * control_period) && time < 15e6){
+      Serial.print(left_motor.get_vel(), 2);
+      Serial.print(",");
+      Serial.print(right_motor.get_vel(), 2);
       Serial.print(",");
       Serial.println(micros());
       last_time = time;
@@ -53,11 +73,26 @@ void loop() {
 
 // robot commands
 void turn(float pos){
-  right_motor.set_pos(pos*2);
+  static bool last_pos = 0;
+
+  if (pos != last_pos){
+    turn_commanded = true;
+    //right_motor.reset_rotational_encoder_count();
+    //left_motor.reset_rotational_encoder_count();
+    last_pos = pos;
+  }
+
+  right_motor.set_pos(pos*3);
   left_motor.set_pos(-pos*2);
+
+  if (!right_motor.is_turning() && !left_motor.is_turning())
+    turn_commanded = false;
 }
 
 void straight(float vel){
+  if (turn_commanded)
+    return;
+
   right_motor.set_vel(vel);
   left_motor.set_vel(vel);
 }
@@ -86,7 +121,7 @@ void step_test(unsigned long time){
   opposite_speed(vel);
 
   
-  if ((time - last_time > (float)velocity_period * control_period) && time < 15e6){
+  if ((time - last_time > (float)vel_rate * control_period) && time < 15e6){
       Serial.print(left_motor.get_vel(), 2);
       Serial.print(",");
       Serial.print(right_motor.get_vel(), 2);
@@ -144,7 +179,7 @@ void turn_test(unsigned long time){
   turn(90);
 
   /*
-  if ((time - last_time > (float)position_period*control_period)){
+  if ((time - last_time > (float)pos_rate*control_period)){
       Serial.print(left_motor.get_pos(), 2);
       Serial.print(",");
       Serial.print(right_motor.get_pos(), 2);
