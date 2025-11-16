@@ -1,4 +1,3 @@
-#include <digitalWriteFast.h>
 #include <util/atomic.h>
 #include "PID_controller.hpp"
 #include <stdbool.h>
@@ -14,18 +13,19 @@ class Motor
   void set_interrupt(void (*isr_AxorB));
   void set_motor_specs(int cpr, float gear_ratio, float wheel_diameter, float vel_maximum);
   void set_velocity_controls(float kf, float kp, float ki, float kd, int control_period, int measurement_rate, float cutoff_freq);
-  void set_position_controls(float kf, float kp, float ki, float kd, int control_period, int measurement_rate, float cutoff_freq);
   void set_motor_orientation(bool left);
 
   // setter and getter functions
-  // the setter functions for vel and pos implement PID control
+  // the setter function for velocity implements PID control
   void set_vel(float vel);
-  void set_pos(float pos);
-  void reset_rotational_encoder_count();
+  void reset_position();
   float get_vel();
   float get_pos();
   float get_pwm();
-  float get_forward();
+
+  // measurement functions
+  float update_vel();
+  void update_pos();
 
   // returns whether or not the motor is part of a turn command
   bool is_turning();
@@ -35,13 +35,8 @@ class Motor
 
   private:
 
-  // measurement functions
-  float update_vel();
-  float update_pos();
-
   // useful values
   float feedforward_gain_v = 0.0f;
-  float feedforward_gain_p = 0.0f;
   float vel_max = 16.0f;
   float count_to_vel;
   float prev_vel = 0.0f;
@@ -79,8 +74,6 @@ class Motor
   float dcount_avg[2] = {0};
   // signed pwm value to write to motor (sign represents direction)
   float pwm = 0;
-  float last_pwm = 0;
-  bool last_dir = false;
   unsigned long last_control_time = 0;
   volatile bool old_B;
   volatile bool old_AxorB;
@@ -91,13 +84,10 @@ class Motor
 
   // motor controllers
   PID_Controller velocity_controller;
-  PID_Controller position_controller;
   
   // controller settings
   int vel_ctrl_period;
-  int pos_ctrl_period;
   int vel_rate;
-  int pos_rate;
 
 };
 
@@ -176,13 +166,6 @@ void Motor::set_velocity_controls(float kf, float kp, float ki, float kd, int co
   count_to_vel = 2.1f * wheel_circumference * 1e6f / (CPR * (float)vel_rate * (float)vel_ctrl_period);
 }
 
-void Motor::set_position_controls(float kf, float kp, float ki, float kd, int control_period, int measurement_rate, float cutoff_freq){
-  feedforward_gain_p = kf * vel_max / 360.0f;
-  position_controller.setup(kp, ki, kd, control_period, measurement_rate, cutoff_freq, vel_max);
-  pos_rate = measurement_rate;
-  pos_ctrl_period = control_period;
-}
-
 void Motor::set_motor_orientation(bool left){
   LEFT = left;
 }
@@ -197,12 +180,12 @@ void Motor::set_vel(float vel){
   pwm = vel * feedforward_gain_v;
 
   // feedback control with deadsetting
-  if (fabs(vel) > 0.1){
+  if (fabs(vel) > 0.1)
     pwm += velocity_controller.process(vel - velocity, velocity, now);
-    //Serial.println(pwm);
-  }
-  else
+  else{
     velocity_controller.process(now);
+    velocity_controller.clear();
+  }
 
   pwm = constrain(pwm, -255.0f, 255.0f);
 
@@ -213,43 +196,10 @@ void Motor::set_vel(float vel){
     velocity = update_vel();
 }
 
-void Motor::set_pos(float pos){
-  //if (!isTurning && fabs(pos - position) > 10.0f){
-  //  isTurning = true;
-    //ATOMIC_BLOCK (ATOMIC_RESTORESTATE){
-    //  rotational_encoder_count = -10;
-    //}
-  //}
-
-  unsigned long now = micros();
-
-  pos = constrain(pos, -360.0f, 360.0f);
-
-  float vel = pos * feedforward_gain_p;
-
-  float error = pos - position;
-
-  if (fabs(error) > 10.0f){
-    vel += position_controller.process(error, position, now);
-  }
-  else{
-    position_controller.process(now);
-    vel = 0;
-    //isTurning = false;
-  }
-
-  vel = constrain(vel, -vel_max, vel_max);
-
-  set_vel(vel);
-
-  if (position_controller.get_control_loops() == pos_rate)
-    position = update_pos();
-}
-
 float Motor::update_vel(){
   float vel;
 
-  dcount[0] = dcount[1];
+  dcount[0] = dcount[1];;
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE){
     dcount[1] = encoder_count;
     // update last encoder count
@@ -270,22 +220,13 @@ float Motor::update_vel(){
   return vel;
 }
 
-float Motor::update_pos(){
-  float pos;
-
+void Motor::update_pos(){
   long rcount;
   ATOMIC_BLOCK (ATOMIC_RESTORESTATE){
     rcount = rotational_encoder_count;
-    //if (abs(rotational_encoder_count) >= 20*PPR)
-    //  rotational_encoder_count = 0;
   }
 
-  pos = (rcount * 360.0f / (10.0f*float(PPR)));
-
-  //if (fabs(pos) > 360.0f)
-  //  return position;
-
-  return pos;
+  position = (rcount * 360.0f / (10.0f*float(PPR)));
 }
 
 float Motor::get_vel(){
@@ -304,15 +245,16 @@ bool Motor::is_turning(){
   return isTurning;
 }
 
-void Motor::reset_rotational_encoder_count(){
+void Motor::reset_position(){
   ATOMIC_BLOCK (ATOMIC_RESTORESTATE){
     rotational_encoder_count = 0;
   }
+  position = 0.0f;
 }
 
 void Motor::readEncoder(){
   // debounce 
-  delayMicroseconds(15);
+  delayMicroseconds(10);
 
   bool new_B = bitRead(*encoderB_pin, encoderB_bit);
   bool new_AxorB = bitRead(*encoderAxorB_pin, encoderAxorB_bit);

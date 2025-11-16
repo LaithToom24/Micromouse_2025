@@ -14,6 +14,7 @@ class PID_Controller
   float process(unsigned long now);
   // Gives the controller the error and outputs the appropriate control. 
   int get_control_loops();
+  void clear();
 
   private:
 
@@ -89,9 +90,9 @@ float PID_Controller::process(float newError, float newMeasure, unsigned long no
     // Bilinear Transform of Low-Pass Filtered Differentiator
     derivative[0] = derivative[1];
     if (control_loops == var_samp_time){
+      measured[0] = measured[1];
       measured[1] = newMeasure; 
       derivative[1] = b_d * derivative[0] + a_d * (measured[1] - measured[0]);
-      measured[0] = measured[1];
       control_loops = 0;
     }
 
@@ -130,6 +131,13 @@ float PID_Controller::process(unsigned long now){
   }
 
   return 0.0f;
+}
+
+void PID_Controller::clear(){
+  integral[1] = 0.0f;
+  derivative[1] = 0.0f;
+  error[1] = 0.0f;
+  measured[1] = 0.0f;
 }
 
 int PID_Controller::get_control_loops(){
