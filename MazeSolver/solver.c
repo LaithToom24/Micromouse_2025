@@ -110,8 +110,11 @@ void serviceQueue(){
 }
 
 void recalculateFloodfill(){
-    reset_cells(goal_cells_found == goal_cells_existing);
-    if (goal_cells_found != goal_cells_existing) {
+    // clear cells for recalculation
+    reset_cells(goal_cells_existing == 1);
+
+    // add goal cells to queue
+    if (goal_cells_existing == 4) {
         queue[0] = cells[8 + (7 * LENGTH)];
         queue[1] = cells[8 + (8 * LENGTH)];
         queue[2] = cells[7 + (8 * LENGTH)];
@@ -122,13 +125,18 @@ void recalculateFloodfill(){
         queue[0] = cells[0];
         queueSize = 1;
     }
+
+    // perform recalculation
     while (queueSize > 0){
         serviceQueue();
     }
+
+    // print distances in the maze
     print_distances();
 }
 
 void reset_cells(bool goal_is_start){
+    // reset cells (keep wall information intact if not in initialization phase)
     for (int i = 0; i < LENGTH; i++){
         for (int j = 0; j < LENGTH; j++){
             cells[j+LENGTH*i].Distance = 1;
@@ -143,7 +151,11 @@ void reset_cells(bool goal_is_start){
             }
         }
     }
+
+    // set goal cells (where the goal is on the map)
     if (!goal_is_start) {
+        sprintf(str, "Setting goal to middle.");
+        debug_log(str);
         cells[8 + (7 * LENGTH)].Distance = 0;
         cells[8 + (8 * LENGTH)].Distance = 0;
         cells[7 + (8 * LENGTH)].Distance = 0;
@@ -154,6 +166,8 @@ void reset_cells(bool goal_is_start){
         cells[7 + (7 * LENGTH)].Filled = true;
     }
     else {
+        sprintf(str, "Setting goal to start.");
+        debug_log(str);
         cells[0].Distance = 0;
         cells[0].Filled = true;
     }
@@ -386,10 +400,13 @@ Action floodFill() {
 
     nextMove = decideBestMove();
 
+    sprintf(str, "Existing goal cells: %d", goal_cells_existing);
+    debug_log(str);
+
     if (!goal_reached) {
         goal_reached = (cells[bot_x_pos + bot_y_pos * LENGTH].Distance == 0);
     }
-    else if (goal_cells_found == goal_cells_existing) {
+    else if (goal_cells_found >= goal_cells_existing) {
         goal_reached = false;
         if (goal_cells_existing == 4) {
             goal_cells_existing = 1;
@@ -399,6 +416,8 @@ Action floodFill() {
             goal_cells_existing = 4;
             reset_cells(false);
         }
+        print_goal_message = true;
+        goal_cells_found = 0;
     }
 
     if (goal_reached) {
@@ -408,6 +427,9 @@ Action floodFill() {
             print_goal_message = false;
         }
     }
+
+    sprintf(str, "Goal cells found: %d \n Distance: %d", goal_cells_found, cells[bot_x_pos + bot_y_pos * LENGTH].Distance == 0);
+    debug_log(str);
 
     if (nextMove == RIGHT){ 
         debug_log("TURNING RIGHT.");
