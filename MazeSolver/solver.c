@@ -8,24 +8,16 @@ Cell cells[AREA];
 Cell queue[MAX_QUEUE+1];
 int queueSize = 0;
 bool init = true;
-bool right = false;
-bool left = false;
-bool forward = true;
-bool alreadyFound = false;
 bool wall_front, wall_left, wall_right;
-int iterations = 0;
 int bot_y_velocity = 1;
 int bot_x_velocity = 0;
 int bot_x_pos = 0;
 int bot_y_pos = 0;
-int left_cell_distance;
-int right_cell_distance;
-int front_cell_distance;
 int goal_cells_found = 0;
 int goal_cells_existing = 4;
 bool goal_reached = false;
 bool print_goal_message = true;
-char str[20];
+char str[15];
 
 void init_grid(){ 
     reset_cells(false);
@@ -111,7 +103,9 @@ void serviceQueue(){
 
 void recalculateFloodfill(){
     // clear cells for recalculation
-    reset_cells(goal_cells_existing == 1);
+    sprintf(str, "Goal cells existing != 4: %d", goal_cells_existing != 4);
+    debug_log(str);
+    reset_cells(goal_cells_existing != 4);
 
     // add goal cells to queue
     if (goal_cells_existing == 4) {
@@ -311,6 +305,9 @@ bool detectWalls()
 
 Action decideBestMove() {
     int left_cell_offset[2] = {0};
+    int left_cell_distance;
+    int right_cell_distance;
+    int front_cell_distance;
     if (bot_x_velocity == -1) {
         wall_left = cells[bot_x_pos + bot_y_pos * LENGTH].walls[2];
         wall_right = cells[bot_x_pos + bot_y_pos * LENGTH].walls[0];
@@ -400,22 +397,20 @@ Action floodFill() {
 
     nextMove = decideBestMove();
 
-    sprintf(str, "Existing goal cells: %d", goal_cells_existing);
-    debug_log(str);
+    //sprintf(str, "Existing goal cells: %d", goal_cells_existing);
+    //debug_log(str);
 
     if (!goal_reached) {
         goal_reached = (cells[bot_x_pos + bot_y_pos * LENGTH].Distance == 0);
     }
     else if (goal_cells_found >= goal_cells_existing) {
         goal_reached = false;
-        if (goal_cells_existing == 4) {
+        if (goal_cells_existing == 4)
             goal_cells_existing = 1;
-            reset_cells(true);
-        }
-        else {
+        else 
             goal_cells_existing = 4;
-            reset_cells(false);
-        }
+
+        recalculateFloodfill();
         print_goal_message = true;
         goal_cells_found = 0;
     }
@@ -428,11 +423,8 @@ Action floodFill() {
         }
     }
 
-    sprintf(str, "Goal cells found: %d \n Distance: %d", goal_cells_found, cells[bot_x_pos + bot_y_pos * LENGTH].Distance == 0);
-    debug_log(str);
-
     if (nextMove == RIGHT){ 
-        debug_log("TURNING RIGHT.");
+        //debug_log("TURNING RIGHT.");
         if (bot_y_velocity == 1){
             bot_x_velocity = 1;
             bot_y_velocity = 0;
@@ -452,7 +444,7 @@ Action floodFill() {
         }
     }
     else if (nextMove == LEFT){
-        debug_log("TURNING LEFT.");
+        //debug_log("TURNING LEFT.");
         if (bot_y_velocity == 1){
             bot_x_velocity = -1;
             bot_y_velocity = 0;
@@ -481,7 +473,7 @@ Action floodFill() {
     } 
     else {
         nextMove = LEFT;
-        debug_log("TURNING LEFT.");
+        //debug_log("TURNING LEFT.");
         if (bot_y_velocity == 1) {
             bot_x_velocity = -1;
             bot_y_velocity = 0;
