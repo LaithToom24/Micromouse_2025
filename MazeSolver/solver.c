@@ -6,7 +6,10 @@
 Cell cells[AREA];
 #define MAX_QUEUE 512
 Cell queue[MAX_QUEUE+1];
+bool queue_initially_filled = false;
 int queueSize = 0;
+int pointer = 1;
+int tail = 1;
 bool init = true;
 bool wall_front, wall_left, wall_right;
 int bot_y_velocity = 1;
@@ -20,16 +23,19 @@ bool print_goal_message = true;
 char str[15];
 
 void init_grid(){ 
+    /*
     reset_cells(false);
-    queue[0] = cells[8 + (7 * LENGTH)];
-    queue[1] = cells[8 + (8 * LENGTH)];
-    queue[2] = cells[7 + (8 * LENGTH)];
-    queue[3] = cells[7 + (7 * LENGTH)];
-    queueSize = 4;
+    addItemToQueue(cells[8 + (7 * LENGTH)]);
+    addItemToQueue(cells[8 + (8 * LENGTH)]);
+    addItemToQueue(cells[7 + (8 * LENGTH)]);
+    addItemToQueue(cells[7 + (7 * LENGTH)]);
     while (queueSize > 0){
         serviceQueue();
     }
     print_distances();
+    */
+    initialize_queue();
+    recalculateFloodfill();
     debug_log("Maze initially filled.");
 };
 
@@ -43,6 +49,17 @@ void print_distances(){
     }
 }
 
+void initialize_queue(){
+    for (int i = 0; i < MAX_QUEUE; i++){
+        Cell item;
+        item.Coordinate[0] = 0;
+        item.Coordinate[1] = 0;
+        item.Distance = 0;
+        item.Filled = false;
+        queue[i] = item;
+    }
+}
+
 void print_queue(){
     debug_log("PRINTING QUEUE");
     for (int i = 0; i < queueSize; i++){
@@ -51,54 +68,82 @@ void print_queue(){
     }
 }
 
-void shiftQueueUp() {
-    for (int i = queueSize - 1; i >= 0; i--) {
-        Cell temp = queue[i];
-        queue[i] = queue[i + 1];
-        queue[i + 1] = temp;
+void addItemToQueue(Cell item) {
+    //for (int i = queueSize - 1; i >= 0; i--) {
+    //    Cell temp = queue[i];
+    //    queue[i] = queue[i + 1];
+    //    queue[i + 1] = temp;
+    //}
+
+    //if (queueSize < MAX_QUEUE)
+    //    queueSize++;
+
+    if (queueSize < MAX_QUEUE)
+        queueSize++;
+    else
+        return;
+
+    queue[tail] = item;
+    tail++;
+
+    if (tail > MAX_QUEUE){
+        if (!queue_initially_filled)
+            queue_initially_filled = true;
+        tail = 1;
     }
-    queueSize++;
+
+    sprintf(str, "Adding Cell; Pointer: %d, Tail: %d, Queue Size: %d", pointer, tail, queueSize);
+    debug_log(str);
 }
 
 void serviceQueue(){
-    int x = queue[queueSize-1].Coordinate[0];
-    int y = queue[queueSize-1].Coordinate[1];
-    int distance = queue[queueSize-1].Distance;
+    //sprintf(str, "Servicing Cell; Pointer: %d, Tail: %d, Queue Size: %d", pointer, tail, queueSize);
+    //debug_log(str);
+    queue[0] = queue[pointer];
+    pointer++;
+    if (pointer > MAX_QUEUE)
+        pointer = 1;
+
+    int x = queue[0].Coordinate[0];
+    int y = queue[0].Coordinate[1];
+    int distance = queue[0].Distance;
 
     // sprintf(coordinate_string, "x: %d, y: %d, distance: %d", x, y, distance);
     // debug_log(coordinate_string);
     
-    if (queueSize > 1 && queue[queueSize-2].Coordinate[0] == x && queue[queueSize-2].Coordinate[1] == y){
+    /*
+    if (queue[pointer].Coordinate[0] == x && queue[pointer].Coordinate[1] == y){
         queueSize--;
+        pointer++;
+        if (pointer > queueSize)
+            pointer = 1;
         return;
     }
+    */
 
     if (x + 1 < LENGTH && (!cells[x + 1 + LENGTH * y].walls[3] && !cells[x + LENGTH * y].walls[1]) && !cells[(x + 1) + y * LENGTH].Filled) {
         cells[(x + 1) + y * LENGTH].Distance = distance + 1;
         cells[(x + 1) + y * LENGTH].Filled = true;
-        shiftQueueUp();
-        queue[0] = cells[(x + 1) + y * LENGTH];
+        addItemToQueue(cells[(x + 1) + y * LENGTH]);
     }
     if (x - 1 > -1 && (!cells[x - 1 + LENGTH * y].walls[1] && !cells[x + LENGTH * y].walls[3]) && !cells[(x - 1) + y * LENGTH].Filled) {
         cells[(x - 1) + y * LENGTH].Distance = distance + 1;
         cells[(x - 1) + y * LENGTH].Filled = true;
-        shiftQueueUp();
-        queue[0] = cells[(x - 1) + y * LENGTH];
+        addItemToQueue(cells[(x - 1) + y * LENGTH]);
     }
     if (y + 1 < LENGTH && (!cells[x + LENGTH * (y + 1)].walls[2] && !cells[x + LENGTH * y].walls[0]) && !cells[x + (y + 1) * LENGTH].Filled) {
         cells[x + (y + 1) * LENGTH].Distance = distance + 1;
         cells[x + (y + 1) * LENGTH].Filled = true;
-        shiftQueueUp();
-        queue[0] = cells[x + (y + 1) * LENGTH];
+        addItemToQueue(cells[x + (y + 1) * LENGTH]);
     }
     if (y - 1 > -1 && (!cells[x + LENGTH * (y - 1)].walls[0] && !cells[x + LENGTH * y].walls[2]) && !cells[x + (y - 1) * LENGTH].Filled) {
         cells[x + (y - 1) * LENGTH].Distance = distance + 1;
         cells[x + (y - 1) * LENGTH].Filled = true;
-        shiftQueueUp();
-        queue[0] = cells[x + (y - 1) * LENGTH];
+        addItemToQueue(cells[x + (y - 1) * LENGTH]);
     }
 
-    queueSize--;
+    if (queue_initially_filled)
+        queueSize--;
 }
 
 void recalculateFloodfill(){
@@ -109,21 +154,17 @@ void recalculateFloodfill(){
 
     // add goal cells to queue
     if (goal_cells_existing == 4) {
-        queue[0] = cells[8 + (7 * LENGTH)];
-        queue[1] = cells[8 + (8 * LENGTH)];
-        queue[2] = cells[7 + (8 * LENGTH)];
-        queue[3] = cells[7 + (7 * LENGTH)];
-        queueSize = 4;
+        addItemToQueue(cells[8 + (7 * LENGTH)]);
+        addItemToQueue(cells[8 + (8 * LENGTH)]);
+        addItemToQueue(cells[7 + (8 * LENGTH)]);
+        addItemToQueue(cells[7 + (7 * LENGTH)]);
     }
-    else {
-        queue[0] = cells[0];
-        queueSize = 1;
-    }
+    else 
+        addItemToQueue(cells[0]);
 
     // perform recalculation
-    while (queueSize > 0){
+    while (queueSize > 0)
         serviceQueue();
-    }
 
     // print distances in the maze
     print_distances();
