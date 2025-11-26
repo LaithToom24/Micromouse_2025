@@ -163,7 +163,7 @@ void Motor::set_velocity_controls(float kf, float kp, float ki, float kd, int co
   velocity_controller.setup(kp, ki, kd, control_period, measurement_rate, cutoff_freq, 255.0f);
   vel_rate = measurement_rate;
   vel_ctrl_period = control_period;
-  count_to_vel = 2.1f * wheel_circumference * 1e6f / (CPR * (float)vel_rate * (float)vel_ctrl_period);
+  count_to_vel = 1.5f * wheel_circumference * 1e6f / (CPR * (float)vel_rate * (float)vel_ctrl_period);
 }
 
 void Motor::set_motor_orientation(bool left){

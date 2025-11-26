@@ -6,9 +6,9 @@ int vel_rate = 5; // update velocity every five control loops
 int pos_rate = 1;
 
 // velocity controller settings
-float kf_v = 1.5f;
-float kp_v = 40.5f;
-float ki_v = 20.0f;
+float kf_v = 0.9f;
+float kp_v = 20.0f;
+float ki_v = 10.0f;
 float kd_v = 0.25f;
 
 // rotational (wheel position) controller settings
@@ -38,18 +38,18 @@ void setup() {
   right_motor.set_velocity_controls(kf_v, kp_v, ki_v, kd_v, control_period, vel_rate, 3.0f);
   right_motor.set_motor_orientation(false);
 
-  /*
+  
   // command robot to go in a square
-  add_command(1, 90); // first command
-  add_command(0, 6);
-  add_command(1, 90);
-  add_command(0, 6);
-  add_command(1, 90);
-  add_command(0, 6);
-  add_command(1, 90);
-  add_command(0, 6);  // last command
-  */
-
+  //add_command(1, 90); // first command
+  add_command(0, 30);
+  //add_command(1, 90);
+  //add_command(0, 6);
+  //add_command(1, 90);
+  //add_command(0, 6);
+  //add_command(1, 90);
+  //add_command(0, 6);  // last command
+  
+  /*
   // command robot to go in a triangle
   add_command(1, 60); // first command
   add_command(0, 6);
@@ -57,6 +57,7 @@ void setup() {
   add_command(0, 6);
   add_command(1, 160);
   add_command(0, 12);  // last command
+  */
 }
 
 void loop() {
