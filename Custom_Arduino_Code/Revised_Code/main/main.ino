@@ -1,18 +1,22 @@
 #include "motor.hpp"
+#include "solver.hpp"
 #include "commands.hpp"
+#include "API.hpp"
 
-int control_period = 10000; // update control system every 10000 us = 10 ms
+bool performing_command = false;
+
+int control_period = 5000; // update control system every 5000 us = 5 ms
 int vel_rate = 5; // update velocity every five control loops
 int pos_rate = 1;
 
 // velocity controller settings
-float kf_v = 1.5f;
-float kp_v = 40.5f;
-float ki_v = 20.0f;
-float kd_v = 0.25f;
+float kf_v = 0.65f;
+float kp_v = 2.5f;
+float ki_v = 8.0f;
+float kd_v = 0.0f;
 
 // rotational (wheel position) controller settings
-float kp_p = 5e-2f;
+float kp_p = 25e-3f;
 float ki_p = 1e-3f;
 float kd_p = 5e-2f;
 
@@ -37,40 +41,57 @@ void setup() {
   right_motor.set_motor_specs(7, 39.0f, 3.0f, 7.0f);
   right_motor.set_velocity_controls(kf_v, kp_v, ki_v, kd_v, control_period, vel_rate, 3.0f);
   right_motor.set_motor_orientation(false);
-
-  /*
-  // command robot to go in a square
-  add_command(1, 90); // first command
-  add_command(0, 6);
-  add_command(1, 90);
-  add_command(0, 6);
-  add_command(1, 90);
-  add_command(0, 6);
-  add_command(1, 90);
-  add_command(0, 6);  // last command
-  */
-
-  // command robot to go in a triangle
-  add_command(1, 60); // first command
-  add_command(0, 6);
-  add_command(1, 60);
-  add_command(0, 6);
-  add_command(1, 160);
-  add_command(0, 12);  // last command
 }
 
-void loop() {
+void loop(){
+  if (micros() > 5e6)
+    solver_loop();
+    //solver_loop();
+}
+
+void solver_loop() {
+  if (!performing_command){
+    Action nextMove = solver();
+    switch(nextMove){
+        case FORWARD:
+            Serial.println("FORWARD");
+            API_moveForward();
+            performing_command = true;
+            break;
+        case LEFT:
+            Serial.println("LEFT");
+            API_turnLeft();
+            performing_command = true;
+            break;
+        case RIGHT:
+            Serial.println("RIGHT");
+            API_turnRight();
+            performing_command = true;
+            break;
+        case IDLE:
+            break;
+        default:
+          break;
+    }
+  }
+  command_loop();
+}
+
+void command_loop() {
   // put your main code here, to run repeatedly: 
   bool done = false;
 
-  if (queue_size > 0){
+  if (command_queue_size > 0){
     if (command_queue[0].type == 0)
       done = straight(command_queue[0].value); 
     else
       done = turn(command_queue[0].value);
 
-    if (done)
+    if (done){
       remove_command();
+      performing_command = false;
+      delayMicroseconds(10000);
+    }
   }
   else{
     right_motor.set_vel(0.0f);
@@ -96,7 +117,7 @@ bool turn(float pos){
   float position = 0.5f*(left_motor.get_pos() + fabs(right_motor.get_pos()));
   float error = pos - position;
 
-  if (fabs(error) > 10.0f){
+  if (fabs(error) > 5.0f){
     vel += turning_controller.process(error, position, now);
     completed_turn = false;
   }
@@ -140,6 +161,10 @@ bool straight(float distance){
   if (distance_traveled >= distance){
     distance_traveled = 0.0f;
     first_iteration = true;
+    right_motor.reset_velocity();
+    left_motor.reset_velocity();
+    right_motor.reset_velocity_controller();
+    left_motor.reset_velocity_controller();
     return true;
   }
   return false;
@@ -187,20 +212,22 @@ void step_test(unsigned long time){
   }
 }
 
-void ramp_test(unsigned long time){
-  static unsigned long last_time = 0;
+void ramp_test(){
+  unsigned long time = micros();
+  static unsigned long last_time = micros();
   static float vel;
 
   if (time < 10e6){
     if (vel < 5.0f)
-      vel = time * (20.0f / 5e6f);
+      vel = (time - 2e6) * (20.0f / 10e6f);
     else
       vel = 5.0f;
   }
   else
     vel = 0.0f;
 
-  straight(-vel);
+  right_motor.set_vel(vel);
+  left_motor.set_vel(-vel);
   
   if ((time - last_time > control_period) && time < 15e6){
       Serial.print(left_motor.get_vel(), 2);

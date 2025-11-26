@@ -9,12 +9,12 @@
 typedef enum Heading {NORTH, EAST, SOUTH, WEST} Heading;
 typedef enum Action {LEFT, FORWARD, RIGHT, IDLE} Action;
 
-typedef struct {
+typedef struct Cell{
     int Coordinate[2];
     int Distance;
     bool walls[4]; // wall[0] - North , wall[1] - East , wall[2] - South , wall[3] - West
     bool Filled;
-} Cell;
+};
 
 Action solver();
 Action floodFill();

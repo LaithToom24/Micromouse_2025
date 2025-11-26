@@ -1,5 +1,5 @@
-#include "solver.h"
-#include "API.h"
+#include "solver.hpp"
+#include "API.hpp"
 
 #define LENGTH 16
 #define AREA LENGTH*LENGTH
