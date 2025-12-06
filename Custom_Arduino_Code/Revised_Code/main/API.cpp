@@ -4,15 +4,15 @@
 #include "sensor.hpp"
 
 int API_wallFront() {
-    return front_dist >= 200;
+    return front_dist >= 70;
 }
 
 int API_wallRight() {
-    return right_dist >= 200;
+    return right_dist >= 150;
 }
 
 int API_wallLeft() {
-    return left_dist >= 200;
+    return left_dist >= 150;
 }
 
 void API_moveForward(){

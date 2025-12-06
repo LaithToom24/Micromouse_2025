@@ -1,4 +1,5 @@
 #include "commands.hpp"
+#include <Arduino.h>
 
 int command_queue_size = 0;
 Command command_queue[TOTAL_COMMANDS];
@@ -21,6 +22,16 @@ void remove_command(){
     command_queue[i-1] = command_queue[i]; 
   
   command_queue_size--;
+}
+
+void print_commands(){
+  for (int i = 0; i < command_queue_size+1; i++){
+    Serial.print(i);
+    Serial.print(" ");
+    Serial.print(command_queue[i].type);
+    Serial.print(" ");
+    Serial.println(command_queue[i].value);
+  }
 }
 
 void add_360turn(){

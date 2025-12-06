@@ -6,21 +6,22 @@
 
 bool performing_command = false;
 
-unsigned long sensor_period = 10000; // update sensor readings every 10 ms
+unsigned long solve_period = 10000;
+unsigned long sensor_period = 5000; // update sensor readings every 10 ms
 int control_period = 5000; // update control system every 5000 us = 5 ms
 int vel_rate = 5; // update velocity every five control loops
 int pos_rate = 1;
 
 // velocity controller settings
-float kf_v = 0.65f;
-float kp_v = 2.5f;
-float ki_v = 8.0f;
-float kd_v = 0.0f;
+float kf_v = 0.65f/1.5f;
+float kp_v = 20.0f/1.5f;
+float ki_v = 15.0f/1.25f;
+float kd_v = 1.0f/1.5f;
 
 // rotational (wheel position) controller settings
-float kp_p = 25e-3f;
-float ki_p = 1e-3f;
-float kd_p = 5e-2f;
+float kp_p = 1e-4f;
+float ki_p = 50e-3f;
+float kd_p = 10e-4f;
 
 // creating motor objects
 Motor left_motor;
@@ -49,12 +50,17 @@ void setup() {
 }
 
 void loop(){
+  //ramp_test();
   if (micros() > 5e6)
     solver_loop();
 }
 
 void solver_loop() {
+  unsigned long now = micros();
+  static unsigned long last_solve_time = micros();
+  if (now - last_solve_time > solve_period){
   if (!performing_command){
+    print_commands();
     Action nextMove = solver();
     switch(nextMove){
         case FORWARD:
@@ -78,15 +84,11 @@ void solver_loop() {
           break;
     }
   }
+  last_solve_time = now;
+  }
   command_loop();
 
-  unsigned long now = micros();
-  static unsigned long last_sensor_time = micros();
-  if (now - last_sensor_time > sensor_period){
-    readAll();
-    last_sensor_time = micros();
-    //printAll();
-  }
+  sensor_loop();
 }
 
 void command_loop() {
@@ -102,7 +104,7 @@ void command_loop() {
     if (done){
       remove_command();
       performing_command = false;
-      delayMicroseconds(10000);
+      delayMicroseconds(1000);
       Serial.println("DONE");
     }
   }
@@ -112,12 +114,23 @@ void command_loop() {
   }
 }
 
+void sensor_loop(){
+  unsigned long now = micros();
+  static unsigned long last_sensor_time = micros();
+  if (now - last_sensor_time > sensor_period){
+    readAll();
+    last_sensor_time = micros();
+    //printAll();
+  }
+}
+
 // robot commands
 bool turn(float pos){
   static bool first_iteration = true;
   bool completed_turn = false;
   unsigned long now = micros();
   float vel = 0;
+  bool left = pos < 0;
 
   if (first_iteration){
     left_motor.reset_position();
@@ -125,12 +138,12 @@ bool turn(float pos){
     first_iteration = false;
   }
 
-  pos = 2.5*constrain(pos, -360.0f, 360.0f);
+  pos = 2.525*constrain(fabs(pos), 0.0f, 360.0f);
 
-  float position = 0.5f*(left_motor.get_pos() + fabs(right_motor.get_pos()));
+  float position = 0.5f*(fabs(left_motor.get_pos()) + fabs(right_motor.get_pos()));
   float error = pos - position;
 
-  if (fabs(error) > 5.0f){
+  if (fabs(error) > 2.0f){
     vel += turning_controller.process(error, position, now);
     completed_turn = false;
   }
@@ -144,8 +157,14 @@ bool turn(float pos){
 
   vel = constrain(vel, -7.0f, 7.0f);
 
-  left_motor.set_vel(vel);
-  right_motor.set_vel(-vel);
+  if (!left){
+    left_motor.set_vel(vel);
+    right_motor.set_vel(-vel);
+  }
+  else{
+    left_motor.set_vel(-vel);
+    right_motor.set_vel(vel);
+  }
 
   if (turning_controller.get_control_loops() == pos_rate){
     left_motor.update_pos();

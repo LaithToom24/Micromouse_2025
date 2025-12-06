@@ -296,34 +296,36 @@ Action decideBestMove() {
         left_cell_offset[1] = 0;
     }
 
-    //sprintf(str, "wall_front: %d, wall_left: %d, wall_right: %d", wall_front, wall_left, wall_right);
-    //debug_log(str);
+    // SAFE LEFT CHECK
+    int target_x_left = bot_x_pos + left_cell_offset[0];
+    int target_y_left = bot_y_pos + left_cell_offset[1];
 
-    if (wall_left)
+    // Check walls AND map boundaries
+    if (wall_left || target_x_left < 0 || target_x_left >= LENGTH || target_y_left < 0 || target_y_left >= LENGTH) {
         left_cell_distance = 1000;
-    else
-        left_cell_distance = cells[(bot_x_pos + left_cell_offset[0]) + LENGTH * (bot_y_pos + left_cell_offset[1])].Distance;
-    //sprintf(str, "%d", (bot_x_pos + left_cell_offset[0]) + LENGTH * (bot_y_pos + left_cell_offset[1]));
-    //debug_log(str);
-    //sprintf(str, "Left Cell Coordinates are (%d, %d) with distance: %d", bot_x_pos + left_cell_offset[0], bot_y_pos + left_cell_offset[1], left_cell_distance);
-    //debug_log(str);
+    } else {
+        left_cell_distance = cells[target_x_left + LENGTH * target_y_left].Distance;
+    }
 
-    if (wall_right)
+    // SAFE RIGHT CHECK
+    int target_x_right = bot_x_pos - left_cell_offset[0];
+    int target_y_right = bot_y_pos - left_cell_offset[1];
+
+    if (wall_right || target_x_right < 0 || target_x_right >= LENGTH || target_y_right < 0 || target_y_right >= LENGTH) {
         right_cell_distance = 1000;
-    else
-        right_cell_distance = cells[(bot_x_pos - left_cell_offset[0]) + LENGTH * (bot_y_pos - left_cell_offset[1])].Distance;
-    //sprintf(str, "Right Cell Coordinates are (%d, %d) with distance: %d", bot_x_pos - left_cell_offset[0], bot_y_pos - left_cell_offset[1], right_cell_distance);
-    //debug_log(str);
+    } else {
+        right_cell_distance = cells[target_x_right + LENGTH * target_y_right].Distance;
+    }
 
-    if (wall_front)
+    // SAFE FRONT CHECK
+    int target_x_front = bot_x_pos + left_cell_offset[1];
+    int target_y_front = bot_y_pos - left_cell_offset[0];
+
+    if (wall_front || target_x_front < 0 || target_x_front >= LENGTH || target_y_front < 0 || target_y_front >= LENGTH) {
         front_cell_distance = 1000;
-    else
-        front_cell_distance = cells[(bot_x_pos + left_cell_offset[1]) + LENGTH * (bot_y_pos - left_cell_offset[0])].Distance;
-    //sprintf(str, "%d", (bot_x_pos + left_cell_offset[1]) + LENGTH * (bot_y_pos - left_cell_offset[0]));
-    //debug_log(str);
-    //sprintf(str, "Front Cell Coordinates are (%d, %d) with distance: %d", bot_x_pos + left_cell_offset[1], bot_y_pos - left_cell_offset[0], front_cell_distance);
-    //debug_log(str);
-
+    } else {
+        front_cell_distance = cells[target_x_front + LENGTH * target_y_front].Distance;
+    }
 
     if (left_cell_distance <= right_cell_distance) {
         if (left_cell_distance < front_cell_distance)
@@ -340,7 +342,7 @@ Action decideBestMove() {
 
 // Put your implementation of floodfill here!
 Action floodFill() {
-    Action nextMove;
+    Action nextMove = FORWARD;
 
     //if (API_wasReset()) {
     //    API_ackReset();

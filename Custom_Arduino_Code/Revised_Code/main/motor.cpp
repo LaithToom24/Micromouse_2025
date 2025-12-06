@@ -98,7 +98,7 @@ float Motor::update_vel(){
   
   dcount_avg[0] = dcount_avg[1];
   if (pwm != 0.0f)
-    dcount_avg[1] = 0.99f * dcount_avg[0] + 0.005f * (dcount[1] + dcount[0]);
+    dcount_avg[1] = 0.9691f * dcount_avg[0] + 0.0155f * (dcount[1] + dcount[0]);
   else
     dcount_avg[1] = (dcount[1] + dcount[0]) * 0.5f;
 

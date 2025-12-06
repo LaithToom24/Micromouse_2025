@@ -13,6 +13,7 @@ extern Command command_queue[TOTAL_COMMANDS];
 
 void add_command(bool, float);
 void remove_command();
+void print_commands();
 void add_360turn();
 void add_180turn();
 
