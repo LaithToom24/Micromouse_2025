@@ -2,9 +2,11 @@
 #include "solver.hpp"
 #include "commands.hpp"
 #include "API.hpp"
+#include "sensor.hpp"
 
 bool performing_command = false;
 
+unsigned long sensor_period = 10000; // update sensor readings every 10 ms
 int control_period = 5000; // update control system every 5000 us = 5 ms
 int vel_rate = 5; // update velocity every five control loops
 int pos_rate = 1;
@@ -28,6 +30,9 @@ PID_Controller turning_controller(kp_p, ki_p, kd_p, control_period, pos_rate, 1.
 void setup() {
   Serial.begin(115200);
 
+  // initialization of emitter pin
+  pinMode(12, OUTPUT);
+
   // left motor initialization
   left_motor.set_motor_pins(9, 7, 2, 4);
   left_motor.set_interrupt(left_isr_CLK);
@@ -46,7 +51,6 @@ void setup() {
 void loop(){
   if (micros() > 5e6)
     solver_loop();
-    //solver_loop();
 }
 
 void solver_loop() {
@@ -75,6 +79,14 @@ void solver_loop() {
     }
   }
   command_loop();
+
+  unsigned long now = micros();
+  static unsigned long last_sensor_time = micros();
+  if (now - last_sensor_time > sensor_period){
+    readAll();
+    last_sensor_time = micros();
+    //printAll();
+  }
 }
 
 void command_loop() {
@@ -91,6 +103,7 @@ void command_loop() {
       remove_command();
       performing_command = false;
       delayMicroseconds(10000);
+      Serial.println("DONE");
     }
   }
   else{

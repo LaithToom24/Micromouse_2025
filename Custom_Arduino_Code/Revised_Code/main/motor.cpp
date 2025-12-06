@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <math.h>
+#include <digitalWriteFast.h>
 
 // constructor
 Motor::Motor(){
@@ -76,7 +77,7 @@ void Motor::set_vel(float vel){
     pwm = 0;
   }
 
-  digitalWrite(DIR, (LEFT ^ (pwm > 0)));
+  digitalWriteFast(DIR, (LEFT ^ (pwm > 0)));
   analogWrite(ENB, fabs(pwm));
 
   if (velocity_controller.get_control_loops() == vel_rate)
@@ -158,8 +159,8 @@ void Motor::reset_position(){
 }
 
 void Motor::readEncoder(){
-  bool new_B = digitalRead(ENCODER_B);
-  bool new_AxorB = digitalRead(ENCODER_AxorB);
+  bool new_B = digitalReadFast(ENCODER_B);
+  bool new_AxorB = digitalReadFast(ENCODER_AxorB);
 
   uint8_t newState = (new_B << 1) | new_AxorB;
 

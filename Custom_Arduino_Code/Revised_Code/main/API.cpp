@@ -1,16 +1,18 @@
+#include <Arduino.h>
 #include "API.hpp"
 #include "commands.hpp"
+#include "sensor.hpp"
 
 int API_wallFront() {
-    return 0;
+    return front_dist >= 200;
 }
 
 int API_wallRight() {
-    return 0;
+    return right_dist >= 200;
 }
 
 int API_wallLeft() {
-    return 1;
+    return left_dist >= 200;
 }
 
 void API_moveForward(){
