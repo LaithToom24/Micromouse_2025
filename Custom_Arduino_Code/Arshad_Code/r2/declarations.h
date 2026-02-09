@@ -1,3 +1,5 @@
+#include <SparkFun_TB6612.h>
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <math.h>

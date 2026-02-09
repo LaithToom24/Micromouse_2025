@@ -1,7 +1,5 @@
 #include "functions.h"
 
-
-
 long int current_time = 0;
 long int last_time = 0;
 int sampling_time = 10000;
