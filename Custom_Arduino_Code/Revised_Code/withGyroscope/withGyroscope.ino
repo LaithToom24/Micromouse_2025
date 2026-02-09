@@ -33,7 +33,7 @@ float kd_p = 1e-2f;
 Motor left_motor;
 Motor right_motor;
 PID_Controller turning_controller(kp_p, ki_p, kd_p, control_period, pos_rate, 1.0f, 7.0f);
-PID_Controller drift_controller(2.0f, 0.5f, 0.1f, control_period, 1, 1.0f, 1.0f);
+PID_Controller drift_controller(2.5f, 0.5f, 0.15f, control_period, 1, 10.0f, 1.0f);
 
 float position = 0;
 float baseline_position = 0;

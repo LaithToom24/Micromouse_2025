@@ -85,7 +85,7 @@ void gyro_init()
     gyroConfig.cfg.gyr.bwp = BMI2_GYR_OSR4_MODE;
     gyroConfig.cfg.gyr.filter_perf = BMI2_PERF_OPT_MODE;
     gyroConfig.cfg.gyr.ois_range = BMI2_GYR_OIS_250;
-    gyroConfig.cfg.gyr.range = BMI2_GYR_RANGE_125;
+    gyroConfig.cfg.gyr.range = BMI2_GYR_RANGE_1000;
     gyroConfig.cfg.gyr.noise_perf = BMI2_PERF_OPT_MODE;
     err = imu.setConfig(gyroConfig);
 
