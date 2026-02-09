@@ -96,13 +96,15 @@ float Motor::update_vel(){
     interrupts();
   //}
   
+  /*
   dcount_avg[0] = dcount_avg[1];
   if (pwm != 0.0f)
-    dcount_avg[1] = 0.9691f * dcount_avg[0] + 0.0155f * (dcount[1] + dcount[0]);
+    dcount_avg[1] = 0.85f * dcount_avg[0] + 0.07f * (dcount[1] + dcount[0]);
   else
     dcount_avg[1] = (dcount[1] + dcount[0]) * 0.5f;
+  */
 
-  vel = count_to_vel * dcount_avg[1];
+  vel = count_to_vel * dcount[1];
 
   if (fabs(vel) > vel_max)
     return velocity;

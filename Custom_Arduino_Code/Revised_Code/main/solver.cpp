@@ -21,12 +21,24 @@ char str[15];
 
 void init_grid(){ 
     reset_cells(false);
+    // set initial goal cells
     queue[0] = cells[8 + (7 * LENGTH)];
     queue[1] = cells[8 + (8 * LENGTH)];
     queue[2] = cells[7 + (8 * LENGTH)];
     queue[3] = cells[7 + (7 * LENGTH)];
+
+    // initialize wall perimeter since every maze has a solid perimeter
+    for (int j = 0; j < LENGTH; j++){
+        cells[j].walls[2] = true;
+        cells[j*LENGTH].walls[3] = true;
+        cells[15+j*LENGTH].walls[1] = true;
+        cells[j+15*LENGTH].walls[0] = true;
+    }
+
+    // queue the four goal cells for floodfill calculations
     queueSize = 4;
     while (queueSize > 0){
+        // calculate floodfill
         serviceQueue();
     }
 }

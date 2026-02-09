@@ -3,6 +3,7 @@
 #include "commands.hpp"
 #include "API.hpp"
 #include "sensor.hpp"
+#include "gyroscopeSetup.hpp"
 
 bool performing_command = false;
 
@@ -14,19 +15,28 @@ int pos_rate = 1;
 
 // velocity controller settings
 float kf_v = 0.65f/1.5f;
-float kp_v = 20.0f/1.5f;
-float ki_v = 15.0f/1.25f;
-float kd_v = 1.0f/1.5f;
+float kp_v = 10.0f;
+float ki_v = 8.0f;
+float kd_v = 0.75f;
 
 // rotational (wheel position) controller settings
-float kp_p = 1e-4f;
+/*
+float kp_p = 1e-5f;
 float ki_p = 50e-3f;
-float kd_p = 10e-4f;
+float kd_p = 10e-5f;
+*/
+float kp_p = 7e-3f;
+float ki_p = 1e-3f;
+float kd_p = 1e-2f;
 
 // creating motor objects
 Motor left_motor;
 Motor right_motor;
 PID_Controller turning_controller(kp_p, ki_p, kd_p, control_period, pos_rate, 1.0f, 7.0f);
+PID_Controller drift_controller(2.5f, 0.5f, 0.15f, control_period, 1, 10.0f, 1.0f);
+
+float position = 0;
+float baseline_position = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -47,12 +57,18 @@ void setup() {
   right_motor.set_motor_specs(7, 39.0f, 3.0f, 7.0f);
   right_motor.set_velocity_controls(kf_v, kp_v, ki_v, kd_v, control_period, vel_rate, 3.0f);
   right_motor.set_motor_orientation(false);
+
+  gyro_init();
 }
 
 void loop(){
   //ramp_test();
-  if (micros() > 5e6)
-    solver_loop();
+  update_position(micros());
+  if (micros() > 5e6){
+      solver_loop();
+      command_loop();
+      //print_all();
+  }
 }
 
 void solver_loop() {
@@ -102,8 +118,12 @@ void command_loop() {
       done = turn(command_queue[0].value);
 
     if (done){
+      if (command_queue[0].type == 1)
+        baseline_position += command_queue[0].value;
       remove_command();
       performing_command = false;
+      right_motor.set_vel(0.0f);
+      left_motor.set_vel(0.0f);
       delayMicroseconds(1000);
       Serial.println("DONE");
     }
@@ -124,27 +144,52 @@ void sensor_loop(){
   }
 }
 
+void update_position(unsigned long now){
+  static unsigned long last_time = now;
+
+  if (now - last_time >= 100){
+    float dt = 1e-6f * (now - last_time);
+    last_time = now;
+
+    float speed = get_gyroZ();
+    if (fabs(speed) > 0.5){
+      position += 0.9935f*speed*dt;
+      //Serial.println(position);
+    }
+  }
+}
+
 // robot commands
 bool turn(float pos){
   static bool first_iteration = true;
   bool completed_turn = false;
   unsigned long now = micros();
+  static unsigned long last_time = now;
   float vel = 0;
-  bool left = pos < 0;
+  static float target = 0;
 
   if (first_iteration){
-    left_motor.reset_position();
-    right_motor.reset_position();
+    target = position + pos;
+    last_time = now;
     first_iteration = false;
   }
+  /*
+  Serial.print(speed);
+  Serial.print("\t");
+  Serial.println(position);
+  */
+  float error = target - position;
 
-  pos = 2.525*constrain(fabs(pos), 0.0f, 360.0f);
+  if (fabs(error) > 0.5f){
+    vel = turning_controller.process(error, position, now);
 
-  float position = 0.5f*(fabs(left_motor.get_pos()) + fabs(right_motor.get_pos()));
-  float error = pos - position;
+    float min_turn_speed = 3.0f; // Adjust this (2.0 to 4.0)
 
-  if (fabs(error) > 2.0f){
-    vel += turning_controller.process(error, position, now);
+    if (fabs(error) > 15.0f) { 
+        if (vel > 0 && vel < min_turn_speed) vel = min_turn_speed;
+        if (vel < 0 && vel > -min_turn_speed) vel = -min_turn_speed;
+    }
+
     completed_turn = false;
   }
   else{
@@ -157,19 +202,8 @@ bool turn(float pos){
 
   vel = constrain(vel, -7.0f, 7.0f);
 
-  if (!left){
-    left_motor.set_vel(vel);
-    right_motor.set_vel(-vel);
-  }
-  else{
-    left_motor.set_vel(-vel);
-    right_motor.set_vel(vel);
-  }
-
-  if (turning_controller.get_control_loops() == pos_rate){
-    left_motor.update_pos();
-    right_motor.update_pos();
-  }
+  left_motor.set_vel(vel);
+  right_motor.set_vel(-vel);
 
   return completed_turn;
 }
@@ -179,14 +213,20 @@ bool straight(float distance){
   static bool first_iteration = true;
   static unsigned long last_time = now;
   static float distance_traveled = 0.0f;
+  float correction = 0.0f;
 
   if (first_iteration){
     last_time = now;
     first_iteration = false;
   } 
 
-  right_motor.set_vel(5.0f);
-  left_motor.set_vel(5.0f);
+  if (fabs(baseline_position - position) > 0.5f){
+    correction = drift_controller.process(baseline_position - position, position, now);
+  }
+
+
+  right_motor.set_vel(5.0f - correction);
+  left_motor.set_vel(5.0f + correction);
 
   distance_traveled += 5.0f*1e-6f*(now - last_time);
   last_time = now;
@@ -212,94 +252,6 @@ void left_isr_CLK(){
 // isr handlers for right motor
 void right_isr_CLK(){
   right_motor.readEncoder();
-}
-
-// robot tests
-void step_test(unsigned long time){
-  static unsigned long last_time = 0;
-
-  float vel = 0.0f;
-
-  if (time < 10e6)
-    vel = 3.0f;
-
-  opposite_speed(vel);
-
-  
-  if ((time - last_time > (float)vel_rate * control_period) && time < 15e6){
-      Serial.print(left_motor.get_vel(), 2);
-      Serial.print(",");
-      Serial.print(right_motor.get_vel(), 2);
-      Serial.print(",");
-      Serial.print(vel);
-      Serial.print(",");
-      Serial.print(vel);
-      Serial.print(",");
-      Serial.print(left_motor.get_pwm(), 2);
-      Serial.print(",");
-      Serial.print(right_motor.get_pwm(), 2);
-      Serial.print(",");
-      Serial.println(micros());
-      last_time = time;
-  }
-}
-
-void ramp_test(){
-  unsigned long time = micros();
-  static unsigned long last_time = micros();
-  static float vel;
-
-  if (time < 10e6){
-    if (vel < 5.0f)
-      vel = (time - 2e6) * (20.0f / 10e6f);
-    else
-      vel = 5.0f;
-  }
-  else
-    vel = 0.0f;
-
-  right_motor.set_vel(vel);
-  left_motor.set_vel(-vel);
-  
-  if ((time - last_time > control_period) && time < 15e6){
-      Serial.print(left_motor.get_vel(), 2);
-      Serial.print(",");
-      Serial.print(right_motor.get_vel(), 2);
-      Serial.print(",");
-      Serial.print(vel, 2);
-      Serial.print(",");
-      Serial.print(vel, 2);
-      Serial.print(",");
-      Serial.print(left_motor.get_pwm(), 2);
-      Serial.print(",");
-      Serial.print(right_motor.get_pwm(), 2);
-      Serial.print(",");
-      Serial.println(micros());
-      last_time = time;
-  }
-  
-}
-
-void turn_test(unsigned long time){
-  static unsigned long last_time = 0;
-
-  turn(90);
-
-  /*
-  if ((time - last_time > (float)pos_rate*control_period)){
-      Serial.print(left_motor.get_pos(), 2);
-      Serial.print(",");
-      Serial.print(right_motor.get_pos(), 2);
-      Serial.print(",");
-      Serial.println(micros());
-      last_time = time;
-  }
-  */
-}
-
-void opposite_speed(float vel){
-  right_motor.set_vel(vel);
-  left_motor.set_vel(-vel);
 }
 
 
