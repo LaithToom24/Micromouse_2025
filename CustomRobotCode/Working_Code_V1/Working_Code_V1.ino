@@ -13,13 +13,13 @@ int leftDistance = 0;
 int rightDistance = 0;
 int frontDistance = 0;
 unsigned long solve_period = 10000;
-unsigned long sensor_period = 5000; // update sensor readings every 5 ms
+unsigned long sensor_period = 120; // update sensor readings every 5 ms
 int control_period = 5000; // update control system every 5000 us = 5 ms
 int vel_rate = 1; // update velocity every five control loops
 int pos_rate = 1;
 
 // set nominal speed
-float nominalSpeed = 1.3f;
+float nominalSpeed = 1.425f;
 // set front detection distance
 int frontDistanceThreshold = 45;
 
@@ -423,16 +423,16 @@ bool straight(float distance){
 
   // 2. Calculate Proportional Wall Avoidance (using your current tuning)
   if (rightDistance <= 35) {
-    wallCorrect = -0.15f * (1.0f - ((float)rightDistance / 125.0f));
+    wallCorrect = -0.275f * (1.0f - ((float)rightDistance / 125.0f));
   }
   else if (leftDistance <= 35) {
-    wallCorrect = 0.15f * (1.0f - ((float)leftDistance / 125.0f));
+    wallCorrect = 0.275f * (1.0f - ((float)leftDistance / 125.0f));
   }
 
   // 3. Command the motors differentially (No Braking)
   if (frontDistance <= 250){
-    right_motor.set_vel((0.6f + (float)frontDistance/250.0f) * nominalSpeed - correction - wallCorrect);
-    left_motor.set_vel((0.6f + (float)frontDistance/250.0f) * nominalSpeed + correction + wallCorrect);
+    right_motor.set_vel((0.4f + (float)frontDistance/250.0f) * nominalSpeed - correction - wallCorrect);
+    left_motor.set_vel((0.4f + (float)frontDistance/250.0f) * nominalSpeed + correction + wallCorrect);
   }
   else{
     right_motor.set_vel(nominalSpeed - correction - wallCorrect);
