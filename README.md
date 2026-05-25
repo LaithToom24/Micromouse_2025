@@ -134,6 +134,8 @@ Executes the head of the command queue. After a command finishes, it enters a **
 
 ### Maze Solver — `solver.cpp / solver.hpp`
 
+Simulated using https://projects.ieeebruins.com/micromouse/floodfill-module#heading=h.2suvr82y3f4z
+
 Implements an 8×8 flood-fill solver. The maze is represented as a flat array of `Cell` structs indexed by `x + LENGTH * y`.
 
 **Data structures**
